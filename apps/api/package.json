@@ -1,0 +1,32 @@
+{
+  "name": "@ust-apurador/api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "@fastify/multipart": "^8.0.0",
+    "axios": "^1.14.0",
+    "axios-ntlm": "^1.4.6",
+    "dotenv": "^16.6.1",
+    "fastify": "^4.26.2",
+    "nanoid": "^3.3.11",
+    "unzipper": "^0.12.3",
+    "xlsx": "^0.18.5",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@types/unzipper": "^0.10.11",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.5"
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.d.ts"
+  ]
+}

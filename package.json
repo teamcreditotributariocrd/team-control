@@ -1,0 +1,19 @@
+{
+  "name": "ust-apurador",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm --workspace apps/api run dev",
+    "dev:web": "npm --workspace apps/web run dev",
+    "build": "npm --workspace apps/api run build && npm --workspace apps/web run build",
+    "backup:data": "node scripts/backup-data.cjs",
+    "glpi:check": "node scripts/check-glpi.cjs"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "httpntlm": "^1.8.13",
+    "zod": "^4.3.6"
+  }
+}

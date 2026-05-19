@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+apps/*/node_modules/
+
+# Build outputs
+dist/
+apps/*/dist/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+apps/*/.env
+apps/*/.env.*
+!apps/*/.env.example
+
+# Runtime data
+**/data/
+backups/
+
+# Local binaries and large generated assets
+apps/api/bin/
+whisper.cpp/
+
+# Logs and process files
+*.log
+logs/
+.pm2/
+pids/
+*.pid
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Test/cache artifacts
+coverage/
+.cache/
+.vite/
