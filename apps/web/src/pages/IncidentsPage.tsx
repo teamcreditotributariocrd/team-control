@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Info } from "lucide-react";
+import { Archive, CheckSquare, Eye, Info, Pause, UsersRound } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 
 type IncidentRow = {
@@ -99,6 +99,7 @@ function statusBadge(status?: string) {
     if (s === "ASSIGNED") return { label: "Atribuido", color: "#facc15" };
     if (s === "PLANNED") return { label: "Planejado", color: "#a78bfa" };
     if (s === "PENDING") return { label: "Pendente", color: "#fb923c" };
+    if (s === "WAITING_APPROVAL") return { label: "Aguardando aprovacao", color: "#b44b8e" };
     if (s === "SOLVED") return { label: "Resolvido", color: "#34d399" };
     if (s === "CLOSED") return { label: "Fechado", color: "#94a3b8" };
     return { label: status ?? "-", color: "#94a3b8" };
@@ -125,15 +126,12 @@ function kpiCounts(rows: IncidentRow[]) {
     const norm = (x: string) => String(x ?? "").toUpperCase();
     const total = rows.length;
     const NEW = rows.filter((r) => norm(r.status) === "NEW").length;
-    const ATTENDANCE = rows.filter((r) => ["ASSIGNED", "PLANNED", "PENDING"].includes(norm(r.status))).length;
     const ASSIGNED = rows.filter((r) => norm(r.status) === "ASSIGNED").length;
-    const PLANNED = rows.filter((r) => norm(r.status) === "PLANNED").length;
     const PENDING = rows.filter((r) => norm(r.status) === "PENDING").length;
+    const WAITING_APPROVAL = rows.filter((r) => norm(r.status) === "WAITING_APPROVAL").length;
     const SOLVED = rows.filter((r) => norm(r.status) === "SOLVED").length;
     const CLOSED = rows.filter((r) => norm(r.status) === "CLOSED").length;
-    const DONE = SOLVED + CLOSED;
-    const OPEN = NEW + ATTENDANCE;
-    return { total, NEW, ATTENDANCE, ASSIGNED, PLANNED, PENDING, SOLVED, CLOSED, DONE, OPEN };
+    return { total, NEW, ASSIGNED, PENDING, WAITING_APPROVAL, SOLVED, CLOSED };
 }
 
 function Badge({ label, color }: { label: string; color: string }) {
@@ -436,15 +434,17 @@ export default function IncidentsPage({ session }: { session: Session }) {
             <div className="grid2" style={{ gap: 12 }}>
                 <div className="card" style={{ padding: 14 }}>
                     <div className="cardTitle">Visao geral</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 10 }}>
-                        <Kpi label="Total" value={kpi.total} />
-                        <Kpi label="Novos" value={kpi.NEW} />
-                        <Kpi label="Atendimentos" value={kpi.ATTENDANCE} />
-                        <Kpi label="Abertos" value={kpi.OPEN} />
-                        <Kpi label="Resolvidos + fechados" value={kpi.DONE} />
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(128px, 1fr))", gap: 10, marginTop: 10 }}>
+                        <Kpi label="Chamados" value={kpi.total} tone="#BDBDBD" icon={<Info size={18} />} />
+                        <Kpi label="Chamados novos" value={kpi.NEW} tone="#12E052" icon={<Info size={18} />} />
+                        <Kpi label="Chamados atribuidos" value={kpi.ASSIGNED} tone="#E89432" icon={<UsersRound size={18} />} />
+                        <Kpi label="Chamados pendentes" value={kpi.PENDING} tone="#F2C334" icon={<Pause size={18} />} />
+                        <Kpi label="Chamados aguardando aprovacao" value={kpi.WAITING_APPROVAL} tone="#B44B8E" textColor="#fff" icon={<Eye size={18} />} />
+                        <Kpi label="Chamados solucionados" value={kpi.SOLVED} tone="#4387C5" textColor="#fff" icon={<CheckSquare size={18} />} />
+                        <Kpi label="Chamados fechados" value={kpi.CLOSED} tone="#4A4A4A" textColor="#fff" icon={<Archive size={18} />} />
                     </div>
                     <div className="muted small" style={{ marginTop: 8 }}>
-                        Atendimentos = atribuidos + planejados + pendentes. Total = todos os incidentes do filtro, independentemente do status.
+                        Total = todos os incidentes do filtro. Os demais cards seguem os status retornados pelo GLPI.
                     </div>
                     <div className="muted small" style={{ marginTop: 10 }}>
                         Periodo: <span className="mono">{from}</span> ate <span className="mono">{to}</span>
@@ -480,6 +480,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                 <option value="ASSIGNED">Atribuido</option>
                                 <option value="PLANNED">Planejado</option>
                                 <option value="PENDING">Pendente</option>
+                                <option value="WAITING_APPROVAL">Aguardando aprovacao</option>
                                 <option value="SOLVED">Resolvido</option>
                                 <option value="CLOSED">Fechado</option>
                             </select>
@@ -717,11 +718,38 @@ export default function IncidentsPage({ session }: { session: Session }) {
     );
 }
 
-function Kpi({ label, value }: { label: string; value: number }) {
+function Kpi({
+    label,
+    value,
+    tone,
+    textColor = "#111",
+    icon,
+}: {
+    label: string;
+    value: number;
+    tone?: string;
+    textColor?: string;
+    icon?: React.ReactNode;
+}) {
     return (
-        <div style={{ padding: 12, border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, background: "rgba(255,255,255,.03)" }}>
-            <div className="muted small">{label}</div>
-            <div className="kpi" style={{ marginTop: 6 }}>{value}</div>
+        <div
+            style={{
+                position: "relative",
+                minHeight: 96,
+                padding: 12,
+                border: "1px solid rgba(255,255,255,.08)",
+                borderRadius: 8,
+                background: tone ?? "rgba(255,255,255,.03)",
+                color: tone ? textColor : undefined,
+            }}
+        >
+            {icon ? (
+                <span style={{ position: "absolute", top: 10, right: 10, opacity: 0.72, color: tone ? textColor : undefined }}>
+                    {icon}
+                </span>
+            ) : null}
+            <div className="kpi" style={{ marginTop: 0, color: tone ? textColor : undefined }}>{value}</div>
+            <div className="small" style={{ marginTop: 6, maxWidth: "90%", color: tone ? textColor : undefined }}>{label}</div>
         </div>
     );
 }

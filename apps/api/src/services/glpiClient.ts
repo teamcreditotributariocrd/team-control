@@ -212,6 +212,7 @@ export function createGlpiClient() {
             if (up.includes("NOV")) return "NEW";
             if (up.includes("ATRIB")) return "ASSIGNED";
             if (up.includes("PLANEJ")) return "PLANNED";
+            if (up.includes("APROV")) return "WAITING_APPROVAL";
             if (up.includes("PEND")) return "PENDING";
             if (up.includes("RESOL")) return "SOLVED";
             if (up.includes("FECH")) return "CLOSED";
