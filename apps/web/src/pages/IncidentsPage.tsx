@@ -37,8 +37,17 @@ type ParetoResponse = {
     total: number;
     cache: IncidentCacheMeta;
     insights: string[];
+    recommendations: Array<{
+        theme: string;
+        count: number;
+        pct: number;
+        sampleIds: number[];
+        suggestedAction: string;
+    }>;
     pareto: {
-        titlePattern: ParetoRow[];
+        theme: ParetoRow[];
+        symptom: ParetoRow[];
+        object: ParetoRow[];
         requester: ParetoRow[];
         status: ParetoRow[];
         priority: ParetoRow[];
@@ -448,9 +457,9 @@ export default function IncidentsPage({ session }: { session: Session }) {
             </div>
 
             <div className="card" style={{ marginTop: 12 }}>
-                <div className="cardTitle">Analise de incidentes</div>
+                <div className="cardTitle">Analise profissional de incidentes</div>
                 <div className="muted small" style={{ marginBottom: 12 }}>
-                    Leitura baseada no cache local e nos titulos preenchidos pelos usuarios.
+                    Classificacao deterministica usando titulo e descricao para apontar temas, sintomas e acoes.
                 </div>
 
                 <div className="grid4" style={{ marginBottom: 14 }}>
@@ -463,8 +472,43 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 </div>
 
                 <div className="grid2">
-                    <ParetoColumn title="Padroes no titulo" rows={pareto?.pareto.titlePattern ?? []} />
+                    <ParetoColumn title="Temas recorrentes" rows={pareto?.pareto.theme ?? []} />
+                    <ParetoColumn title="Sintomas recorrentes" rows={pareto?.pareto.symptom ?? []} />
+                    <ParetoColumn title="Objetos afetados" rows={pareto?.pareto.object ?? []} />
                     <ParetoColumn title="Solicitantes" rows={pareto?.pareto.requester ?? []} />
+                </div>
+
+                <div className="card" style={{ marginTop: 14, padding: 12 }}>
+                    <div className="cardTitle">Sugestoes de acao</div>
+                    {pareto?.recommendations?.length ? (
+                        <div className="tableWrap">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Tema</th>
+                                        <th>Volume</th>
+                                        <th>Acao sugerida</th>
+                                        <th>Exemplos</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pareto.recommendations.map((r) => (
+                                        <tr key={r.theme}>
+                                            <td className="strong">{r.theme}</td>
+                                            <td className="mono">{r.count} ({r.pct}%)</td>
+                                            <td>{r.suggestedAction}</td>
+                                            <td className="mono">{r.sampleIds.join(", ")}</td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="muted small">Sem recomendacoes para os filtros atuais.</div>
+                    )}
+                </div>
+
+                <div className="grid2" style={{ marginTop: 14 }}>
                     <ParetoColumn title="Status" rows={pareto?.pareto.status ?? []} />
                     <ParetoColumn title="Prioridade" rows={pareto?.pareto.priority ?? []} />
                 </div>

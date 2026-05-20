@@ -11,6 +11,14 @@ export type IncidentParetoRow = {
     sampleIds: number[];
 };
 
+type IncidentClassification = {
+    theme: string;
+    symptom: string;
+    object: string;
+    suggestedAction: string;
+    confidence: number;
+};
+
 type CacheFile = {
     updatedAt: string | null;
     rows: GlpiIncident[];
@@ -44,16 +52,81 @@ function normText(value: string) {
         .trim();
 }
 
-function titlePatternKey(row: GlpiIncident) {
-    const text = normText(row.title ?? "");
-    const stop = new Set([
-        "solicitacao", "chamado", "erro", "problema", "favor", "verificar", "ajuste", "acesso",
-        "solicito", "realizar", "realizacao", "sistema", "usuario", "demanda", "analise",
-        "incidente", "duvida", "informacao", "incluir", "alterar", "corrigir", "validar",
-        "acessar", "abrir", "gerar", "emitir", "falha",
-    ]);
-    const words = text.split(" ").filter((w) => w.length >= 4 && !stop.has(w));
-    return words.slice(0, 5).join(" ") || text.slice(0, 60) || "Nao classificado";
+function hasAny(text: string, terms: string[]) {
+    return terms.some((term) => text.includes(normText(term)));
+}
+
+function classifyIncident(row: GlpiIncident): IncidentClassification {
+    const text = normText(`${row.title ?? ""} ${row.descriptionText ?? ""}`);
+    let theme = "Geral";
+    let object = "Nao classificado";
+    let symptom = "Solicitacao/analise";
+    let suggestedAction = "Revisar titulo e descricao do chamado para identificar acao tecnica.";
+    let confidence = 0.35;
+
+    const themes = [
+        { label: "Parcelamento", object: "Parcelamento", terms: ["parcelamento", "parcela", "ipva", "ppd", "pva", "pvad"] },
+        { label: "Acesso/Permissao", object: "Acesso", terms: ["acesso", "permissao", "login", "senha", "usuario", "perfil", "autorizacao"] },
+        { label: "BI/Relatorio", object: "Relatorio/BI", terms: ["relatorio", "painel", "bi", "indicador", "consulta", "dashboard"] },
+        { label: "ALIM/Batimento", object: "ALIM/Batimento", terms: ["alim", "batimento", "baixa", "pagamento", "quitado"] },
+        { label: "Notificacao", object: "Notificacao", terms: ["notificacao", "notificar", "publicacao", "publicar", "edital"] },
+        { label: "ACT", object: "ACT", terms: ["act"] },
+        { label: "Omissos/EFD", object: "Omissos/EFD", terms: ["omisso", "omissos", "efd", "carga"] },
+        { label: "Assinatura", object: "Assinatura", terms: ["assinatura", "govbr", "gov br", "certificado"] },
+        { label: "Integracao", object: "Integracao", terms: ["integracao", "webservice", "api", "retorno", "sincronizacao"] },
+    ];
+
+    for (const t of themes) {
+        if (hasAny(text, t.terms)) {
+            theme = t.label;
+            object = t.object;
+            confidence += 0.25;
+            break;
+        }
+    }
+
+    if (hasAny(text, ["acesso", "permissao", "login", "senha", "perfil"])) {
+        symptom = "Acesso/permissao";
+        suggestedAction = "Validar perfil, lotacao/grupo e regra de autorizacao antes de alterar codigo.";
+        confidence += 0.18;
+    } else if (hasAny(text, ["divergencia", "valor", "diferenca", "inconsistencia", "incorreto", "errado"])) {
+        symptom = "Divergencia de dados/valores";
+        suggestedAction = "Comparar fonte de dados, regra de calculo e consulta usada no sistema; anexar caso exemplo.";
+        confidence += 0.2;
+    } else if (hasAny(text, ["erro", "falha", "exception", "nao gera", "nao abre", "nao funciona", "problema"])) {
+        symptom = "Erro funcional";
+        suggestedAction = "Reproduzir o fluxo, coletar mensagem/print/log e criar correcao com teste do cenario.";
+        confidence += 0.18;
+    } else if (hasAny(text, ["lento", "lentidao", "demora", "timeout", "travando"])) {
+        symptom = "Performance/timeout";
+        suggestedAction = "Medir tempo de resposta, revisar consulta/indice e verificar volume de dados do caso.";
+        confidence += 0.18;
+    } else if (hasAny(text, ["incluir", "alterar", "ajustar", "solicito", "solicitacao"])) {
+        symptom = "Solicitacao de ajuste";
+        suggestedAction = "Confirmar regra de negocio, impacto e criterio de aceite antes de implementar.";
+        confidence += 0.12;
+    }
+
+    if (theme === "Parcelamento" && symptom === "Erro funcional") {
+        suggestedAction = "Revisar regra de parcelamento, datas de vencimento/dia util e integracao PVA/PVAD com caso exemplo.";
+        confidence += 0.1;
+    }
+    if (theme === "BI/Relatorio" && symptom === "Divergencia de dados/valores") {
+        suggestedAction = "Comparar query do painel/relatorio com a fonte oficial e validar filtros de periodo/status.";
+        confidence += 0.1;
+    }
+    if (theme === "ALIM/Batimento") {
+        suggestedAction = "Validar rotina de batimento/baixa, status financeiro e lista de documentos afetados.";
+        confidence += 0.08;
+    }
+
+    return {
+        theme,
+        symptom,
+        object,
+        suggestedAction,
+        confidence: Number(Math.min(confidence, 0.95).toFixed(2)),
+    };
 }
 
 function filterRows(rows: GlpiIncident[], q: GlpiIncidentsQuery) {
@@ -81,11 +154,12 @@ function filterRows(rows: GlpiIncident[], q: GlpiIncidentsQuery) {
     });
 }
 
-function buildPareto(rows: GlpiIncident[], groupBy: "titlePattern" | "requester" | "status" | "priority", limit = 10) {
+function buildPareto(rows: GlpiIncident[], groupBy: "theme" | "symptom" | "object" | "requester" | "status" | "priority", limit = 10) {
     const map = new Map<string, { label: string; count: number; sampleIds: number[] }>();
     for (const row of rows) {
+        const classification = classifyIncident(row);
         const label =
-            groupBy === "titlePattern" ? titlePatternKey(row) :
+            groupBy === "theme" || groupBy === "symptom" || groupBy === "object" ? classification[groupBy] :
                 String((row as any)[groupBy] ?? "").trim() || "Nao classificado";
         const current = map.get(label) ?? { label, count: 0, sampleIds: [] };
         current.count += 1;
@@ -166,10 +240,23 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
                 const s = String(row.status ?? "").toUpperCase();
                 return s !== "SOLVED" && s !== "CLOSED";
             });
-            const topTitlePattern = buildPareto(rows, "titlePattern", 1)[0] ?? null;
+            const topTheme = buildPareto(rows, "theme", 1)[0] ?? null;
+            const topSymptom = buildPareto(rows, "symptom", 1)[0] ?? null;
             const topRequester = buildPareto(rows, "requester", 1)[0] ?? null;
+            const recommendations = buildPareto(rows, "theme", 6).map((item) => {
+                const incident = rows.find((row) => classifyIncident(row).theme === item.label);
+                const classification = incident ? classifyIncident(incident) : null;
+                return {
+                    theme: item.label,
+                    count: item.count,
+                    pct: item.pct,
+                    sampleIds: item.sampleIds,
+                    suggestedAction: classification?.suggestedAction ?? "Revisar incidentes agrupados e definir acao corretiva.",
+                };
+            });
             const insights = [
-                topTitlePattern ? `Padrao mais recorrente nos titulos: "${topTitlePattern.label}" (${topTitlePattern.count} chamados).` : null,
+                topTheme ? `Tema mais recorrente: ${topTheme.label} (${topTheme.count} chamados).` : null,
+                topSymptom ? `Sintoma mais comum: ${topSymptom.label} (${topSymptom.count} chamados).` : null,
                 topRequester ? `Solicitante com maior volume no filtro: ${topRequester.label} (${topRequester.count} chamados).` : null,
                 `Chamados em aberto no filtro: ${openRows.length}.`,
                 rows.length ? `Fechados/resolvidos representam ${Math.round((((statusCounts.CLOSED ?? 0) + (statusCounts.SOLVED ?? 0)) / rows.length) * 100)}% do filtro.` : null,
@@ -179,8 +266,11 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
                 total: rows.length,
                 cache: this.getMeta(),
                 insights,
+                recommendations,
                 pareto: {
-                    titlePattern: buildPareto(rows, "titlePattern", 10),
+                    theme: buildPareto(rows, "theme", 10),
+                    symptom: buildPareto(rows, "symptom", 10),
+                    object: buildPareto(rows, "object", 10),
                     requester: buildPareto(rows, "requester", 10),
                     status: buildPareto(rows, "status", 10),
                     priority: buildPareto(rows, "priority", 10),
