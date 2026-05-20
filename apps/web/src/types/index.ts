@@ -150,3 +150,11 @@ export type CatalogRow = {
 export type CatalogPageResponse = { total: number; offset: number; limit: number; rows: CatalogRow[] };
 
 export type FavoriteCatalogResponse = { uniqueName: string; codes: number[]; rows: CatalogRow[] };
+
+export type DiscordDailySchedule = {
+    enabled: boolean;
+    times: string[];
+    lastRunAt: string | null;
+    lastRunStatus: "OK" | "ERROR" | null;
+    lastRunMessage: string | null;
+};

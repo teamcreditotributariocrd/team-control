@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import PageOverlayLoading from "../components/PageOverlayLoading";
 import { apiGet, apiSend } from "../lib/api";
-import type { Collaborator, Role } from "../types";
+import type { Collaborator, DiscordDailySchedule, Role } from "../types";
 
 type CollaboratorForm = Omit<Collaborator, "id" | "hasPassword"> & {
     id?: string;
@@ -17,6 +17,11 @@ export default function SettingsPage({ session }: { session: any }) {
     const [matrixStartMonth, setMatrixStartMonth] = useState(() => new Date().toISOString().slice(0, 7));
     const [matrixMonths, setMatrixMonths] = useState(6);
     const [goalDrafts, setGoalDrafts] = useState<Record<string, Record<string, number>>>({});
+    const [dailySchedule, setDailySchedule] = useState<DiscordDailySchedule | null>(null);
+    const [scheduleDraft, setScheduleDraft] = useState<{ enabled: boolean; times: string[] }>({
+        enabled: true,
+        times: ["09:00", "15:00"],
+    });
 
     const [form, setForm] = useState<CollaboratorForm>({
         displayName: "",
@@ -59,6 +64,9 @@ export default function SettingsPage({ session }: { session: any }) {
         try {
             const d = await apiGet<Collaborator[]>("/api/collaborators", session);
             setList(d);
+            const schedule = await apiGet<DiscordDailySchedule>("/api/discord-daily-schedule", session);
+            setDailySchedule(schedule);
+            setScheduleDraft({ enabled: schedule.enabled, times: schedule.times.length ? schedule.times : ["09:00", "15:00"] });
         } catch (e: any) {
             setErr(String(e?.message ?? e));
         } finally {
@@ -143,6 +151,38 @@ export default function SettingsPage({ session }: { session: any }) {
         }
     }
 
+    async function saveDailySchedule() {
+        setLoading(true);
+        setErr("");
+        try {
+            const times = Array.from(new Set(scheduleDraft.times.filter(Boolean))).sort();
+            const saved = await apiSend<DiscordDailySchedule>("/api/discord-daily-schedule", "PUT", {
+                enabled: scheduleDraft.enabled,
+                times: times.length ? times : ["09:00"],
+            }, session);
+            setDailySchedule(saved);
+            setScheduleDraft({ enabled: saved.enabled, times: saved.times });
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function runDailyNow() {
+        setLoading(true);
+        setErr("");
+        try {
+            const saved = await apiSend<DiscordDailySchedule>("/api/discord-daily-schedule/run-now", "POST", {}, session);
+            setDailySchedule(saved);
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+            await refresh();
+        } finally {
+            setLoading(false);
+        }
+    }
+
     return (
         <div>
             <PageOverlayLoading show={loading} label="Salvando..." />
@@ -160,6 +200,89 @@ export default function SettingsPage({ session }: { session: any }) {
             </div>
 
             {err && <div className="alert">{err}</div>}
+
+            <div className="card" style={{ marginBottom: 14 }}>
+                <div className="pageHeader" style={{ marginBottom: 12, paddingBottom: 12 }}>
+                    <div>
+                        <div className="cardTitle" style={{ marginBottom: 4 }}>Relatorio Discord diario</div>
+                        <div className="muted small">Agenda o script sendDiscordDaily.mjs para enviar o progresso do time.</div>
+                    </div>
+                    <div className="pageHeaderRight">
+                        <button className="btn ghost" onClick={runDailyNow} disabled={loading}>
+                            Enviar agora
+                        </button>
+                        <button className="btn primary" onClick={saveDailySchedule} disabled={loading}>
+                            Salvar agenda
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid2">
+                    <div>
+                        <label className="check" style={{ marginBottom: 12 }}>
+                            <input
+                                type="checkbox"
+                                checked={scheduleDraft.enabled}
+                                onChange={(e) => setScheduleDraft((current) => ({ ...current, enabled: e.target.checked }))}
+                            />
+                            Ativar envio automatico
+                        </label>
+                        <div className="row2">
+                            {scheduleDraft.times.map((time, index) => (
+                                <div key={`daily-time-${index}`}>
+                                    <div className="label">Horario {index + 1}</div>
+                                    <div style={{ display: "flex", gap: 8 }}>
+                                        <input
+                                            className="input"
+                                            type="time"
+                                            value={time}
+                                            onChange={(e) => {
+                                                const next = [...scheduleDraft.times];
+                                                next[index] = e.target.value;
+                                                setScheduleDraft((current) => ({ ...current, times: next }));
+                                            }}
+                                        />
+                                        <button
+                                            className="btn ghost"
+                                            disabled={scheduleDraft.times.length <= 1}
+                                            onClick={() => setScheduleDraft((current) => ({
+                                                ...current,
+                                                times: current.times.filter((_, i) => i !== index),
+                                            }))}
+                                        >
+                                            Remover
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            className="btn ghost"
+                            style={{ marginTop: 10 }}
+                            onClick={() => setScheduleDraft((current) => ({ ...current, times: [...current.times, "09:00"] }))}
+                            disabled={scheduleDraft.times.length >= 8}
+                        >
+                            Adicionar horario
+                        </button>
+                    </div>
+                    <div>
+                        <div className="label">Ultima execucao</div>
+                        <div className="card" style={{ padding: 12 }}>
+                            <div className="strong">
+                                {dailySchedule?.lastRunAt ? new Date(dailySchedule.lastRunAt).toLocaleString() : "Ainda nao executou"}
+                            </div>
+                            <div style={{ marginTop: 8 }}>
+                                <span className={`pill ${dailySchedule?.lastRunStatus === "OK" ? "ok" : dailySchedule?.lastRunStatus === "ERROR" ? "bad" : ""}`}>
+                                    {dailySchedule?.lastRunStatus ?? "SEM STATUS"}
+                                </span>
+                            </div>
+                            <div className="muted small" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
+                                {dailySchedule?.lastRunMessage ?? "Use Enviar agora para validar o webhook e o relatorio."}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             <div className="card" style={{ marginBottom: 14 }}>
                 <div className="pageHeader" style={{ marginBottom: 12, paddingBottom: 12 }}>

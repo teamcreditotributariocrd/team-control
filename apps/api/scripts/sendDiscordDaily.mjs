@@ -71,6 +71,7 @@ const today = isoDate();
 
 const summaryRes = await fetch(`${API_BASE}/api/ust/summary?month=${month}`, {
     headers: {
+        ...(process.env.INTERNAL_ALERT_TOKEN ? { "x-internal-alert-token": process.env.INTERNAL_ALERT_TOKEN } : {}),
         "x-user-unique-name": adminUser,
         "x-user-role": adminRole,
     },

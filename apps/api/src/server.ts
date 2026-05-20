@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import multipart from "@fastify/multipart";
 import cors from "@fastify/cors";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -23,6 +24,8 @@ import { transcribeRoutes } from "./routes/transcribe.js";
 
 import { incidentsRoutes } from "./routes/incidents.js";
 import { tfsTasksRoutes } from "./routes/tfsTasks.js";
+import { discordDailyScheduleRoutes } from "./routes/discordDailySchedule.js";
+import { startDiscordDailyScheduler } from "./services/discordDailyRunner.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -31,6 +34,7 @@ const webDist = path.resolve(apiRoot, "..", "web", "dist");
 
 dotenv.config({ path: path.join(apiRoot, ".env"), override: true });
 dotenv.config();
+process.env.INTERNAL_ALERT_TOKEN ||= crypto.randomBytes(32).toString("base64url");
 
 const app = Fastify({ logger: true });
 
@@ -83,6 +87,7 @@ await meetingsRoutes(app, deps);
 
 await app.register(incidentsRoutes);
 await app.register(tfsTasksRoutes);
+await discordDailyScheduleRoutes(app, deps, apiRoot);
 
 await app.register(transcribeRoutes);
 
@@ -118,5 +123,16 @@ app.get("/*", async (req, reply) => {
   return sendWebFile(reply, indexFile);
 });
 
+let stopDiscordDailyScheduler: (() => void) | null = null;
+app.addHook("onClose", async () => {
+  stopDiscordDailyScheduler?.();
+});
+
 const port = Number(process.env.PORT ?? 3001);
 await app.listen({ port, host: "0.0.0.0" });
+
+stopDiscordDailyScheduler = startDiscordDailyScheduler({
+  apiRoot,
+  store: deps.alertScheduleStore,
+  logger: app.log,
+});
