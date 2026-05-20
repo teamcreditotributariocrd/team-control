@@ -52,7 +52,19 @@ export type UserItemsResponse = {
         workItemUrl: string | null;
         atividadeRaw: string;
     }>;
-    unmapped: Array<any>;
+    unmapped: Array<{
+        id: number;
+        title: string;
+        reason: string;
+        raw?: string;
+        exec?: string;
+        code?: number;
+        gotComplexidade?: string | null;
+        expectedComplexidade?: string | null;
+        action?: string;
+        workItemUrl?: string | null;
+        suggestions?: Array<CatalogRow & { score: number; matchedTerms: string[] }>;
+    }>;
 };
 
 export type UserHistoryResponse = {

@@ -263,7 +263,8 @@ export async function ustDashboardRoutes(app: FastifyInstance, deps: any) {
                 continue;
             }
             if (code == null) {
-                unmapped.push(issue({ id, title, reason: "SEM_CODIGO", raw, exec }));
+                const suggestions = deps.store.suggestCatalogForText(`${title ?? ""} ${raw ?? ""}`, 3);
+                unmapped.push(issue({ id, title, reason: "SEM_CODIGO", raw, exec, suggestions }));
                 continue;
             }
 

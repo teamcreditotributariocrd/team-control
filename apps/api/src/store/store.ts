@@ -51,6 +51,11 @@ export type FavoriteCatalogResponse = {
   rows: CatalogRow[];
 };
 
+export type CatalogSuggestion = CatalogRow & {
+  score: number;
+  matchedTerms: string[];
+};
+
 export type LookupOk = {
   ok: true;
   ust: number;
@@ -73,6 +78,7 @@ export type LookupResult = LookupOk | LookupMismatch;
 export type AppStore = {
   importCatalogXlsx(filePath: string): Promise<{ totalImported: number; sheetName: string; detectedHeaders: string[] }>;
   lookupUstByCode(codigo: number, complexidadeTfs?: string | null): LookupResult | null;
+  suggestCatalogForText(text: string, limit?: number): CatalogSuggestion[];
   getCatalogPage(query: CatalogPageQuery): CatalogPage;
   getCatalogByCode(code: number): CatalogRow | null;
   getFavoriteCatalog(uniqueName: string): FavoriteCatalogResponse;
@@ -106,6 +112,20 @@ function normComp(s: any): string {
 
 function normalizeSearch(s: string) {
   return s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+}
+
+function tokenizeSearch(s: string) {
+  const stop = new Set([
+    "A", "O", "AS", "OS", "DE", "DA", "DO", "DAS", "DOS", "E", "EM", "NO", "NA", "NOS", "NAS",
+    "PARA", "POR", "COM", "SEM", "AO", "AOS", "UM", "UMA", "CORRIGIR", "AJUSTAR", "CRIAR",
+    "ALTERAR", "VALIDAR", "ANALISAR", "IMPLEMENTAR", "ERRO", "BUG", "TASK", "TAREFA",
+  ]);
+  return Array.from(new Set(
+    normalizeSearch(s)
+      .split(/[^A-Z0-9]+/)
+      .map((x) => x.trim())
+      .filter((x) => x.length >= 3 && !stop.has(x))
+  ));
 }
 
 function pick(row: any, keys: string[]) {
@@ -290,6 +310,43 @@ export function createStore(dataDir = resolveApiDataDir()): AppStore {
         row,
         audit: `catalogCode(${codigo}) -> Peso=${row.ust} | Cat.Comp=${row.complexidade} | TFS.Comp=${complexidadeTfs ?? ""}`,
       };
+    },
+
+    suggestCatalogForText(text: string, limit = 3): CatalogSuggestion[] {
+      const terms = tokenizeSearch(text);
+      if (!terms.length) return [];
+
+      const scored = catalog
+        .map((row) => {
+          const fields = {
+            grupo: normalizeSearch(row.grupo),
+            subgrupo: normalizeSearch(row.subgrupo),
+            atividade: normalizeSearch(row.atividade),
+            tipo: normalizeSearch(row.tipo),
+          };
+          const hay = `${fields.grupo} ${fields.subgrupo} ${fields.atividade} ${fields.tipo}`;
+          const matchedTerms: string[] = [];
+          let score = 0;
+
+          for (const term of terms) {
+            if (!hay.includes(term)) continue;
+            matchedTerms.push(term);
+            if (fields.atividade.includes(term)) score += 5;
+            else if (fields.subgrupo.includes(term)) score += 4;
+            else if (fields.grupo.includes(term)) score += 3;
+            else score += 1;
+          }
+
+          const activity = fields.atividade || fields.subgrupo;
+          if (activity && normalizeSearch(text).includes(activity)) score += 8;
+          if (fields.subgrupo && normalizeSearch(text).includes(fields.subgrupo)) score += 5;
+
+          return { ...row, score, matchedTerms };
+        })
+        .filter((row) => row.score > 0)
+        .sort((a, b) => b.score - a.score || a.codigo - b.codigo);
+
+      return scored.slice(0, Math.min(Math.max(limit, 1), 10));
     },
 
     getCatalogPage(query: CatalogPageQuery) {

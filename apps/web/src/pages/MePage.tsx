@@ -184,10 +184,14 @@ export default function MePage({ session }: { session: any }) {
         ];
 
         for (const u of unmapped.slice(0, 6)) {
+            const suggestions = Array.isArray(u.suggestions) ? u.suggestions.slice(0, 3) : [];
+            const suggestionText = suggestions.length
+                ? ` Sugestoes: ${suggestions.map((s: any) => `${s.codigo} - ${s.atividade || s.subgrupo} (${s.complexidade}, ${s.ust} UST)`).join("; ")}.`
+                : "";
             actions.push({
                 severity: u.reason === "COMPLEXIDADE_DIVERGENTE" ? "warn" : "bad",
                 title: `${issueLabel(String(u.reason ?? "OUTRO"))} #${u.id ?? ""}`.trim(),
-                detail: String(u.title ?? "Task sem titulo"),
+                detail: `${String(u.title ?? "Task sem titulo")}${suggestionText}`,
                 action: String(u.action ?? "Conferir campos UST no TFS."),
                 workItemUrl: u.workItemUrl,
             });
@@ -587,6 +591,7 @@ export default function MePage({ session }: { session: any }) {
                                                 <th>Codigo</th>
                                                 <th>Complexidade</th>
                                                 <th>Titulo</th>
+                                                <th>Sugestoes</th>
                                                 <th>Acao</th>
                                                 <th>Link</th>
                                             </tr>
@@ -603,6 +608,23 @@ export default function MePage({ session }: { session: any }) {
                                                         {u.expectedComplexidade ? ` / esperado: ${u.expectedComplexidade}` : ""}
                                                     </td>
                                                     <td style={{ maxWidth: 460 }}>{u.title}</td>
+                                                    <td style={{ maxWidth: 420 }}>
+                                                        {Array.isArray(u.suggestions) && u.suggestions.length ? (
+                                                            <div style={{ display: "grid", gap: 6 }}>
+                                                                {u.suggestions.slice(0, 3).map((s: any) => (
+                                                                    <div key={`${u.id}-${s.codigo}-${s.complexidade}`}>
+                                                                        <span className="mono">{s.codigo}</span>{" "}
+                                                                        {s.atividade || s.subgrupo}
+                                                                        <div className="muted small">
+                                                                            {s.complexidade} / {s.ust} UST / score {s.score}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        ) : (
+                                                            <span className="muted small">-</span>
+                                                        )}
+                                                    </td>
                                                     <td>{u.action ?? "Conferir campos UST no TFS."}</td>
                                                     <td>
                                                         {u.workItemUrl ? (
