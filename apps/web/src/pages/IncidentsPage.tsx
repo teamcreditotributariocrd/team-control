@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, CheckSquare, Eye, Info, Pause, UsersRound } from "lucide-react";
+import { Archive, Eye, Info, Pause, UsersRound } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 
 type IncidentRow = {
@@ -26,6 +26,19 @@ type IncidentCacheMeta = {
     totalCached: number;
 };
 
+type IncidentKpis = {
+    total: number;
+    NEW: number;
+    ASSIGNED: number;
+    PLANNED: number;
+    PENDING: number;
+    WAITING_APPROVAL: number;
+    SOLVED: number;
+    CLOSED: number;
+    OPEN: number;
+    IN_ATTENDANCE: number;
+};
+
 type ParetoRow = {
     label: string;
     count: number;
@@ -36,6 +49,7 @@ type ParetoRow = {
 
 type ParetoResponse = {
     total: number;
+    kpis?: IncidentKpis;
     cache: IncidentCacheMeta;
     insights: string[];
     recommendations: Array<{
@@ -127,11 +141,14 @@ function kpiCounts(rows: IncidentRow[]) {
     const total = rows.length;
     const NEW = rows.filter((r) => norm(r.status) === "NEW").length;
     const ASSIGNED = rows.filter((r) => norm(r.status) === "ASSIGNED").length;
+    const PLANNED = rows.filter((r) => norm(r.status) === "PLANNED").length;
     const PENDING = rows.filter((r) => norm(r.status) === "PENDING").length;
     const WAITING_APPROVAL = rows.filter((r) => norm(r.status) === "WAITING_APPROVAL").length;
     const SOLVED = rows.filter((r) => norm(r.status) === "SOLVED").length;
     const CLOSED = rows.filter((r) => norm(r.status) === "CLOSED").length;
-    return { total, NEW, ASSIGNED, PENDING, WAITING_APPROVAL, SOLVED, CLOSED };
+    const OPEN = rows.filter((r) => !["SOLVED", "CLOSED"].includes(norm(r.status))).length;
+    const IN_ATTENDANCE = ASSIGNED + PLANNED + PENDING + WAITING_APPROVAL;
+    return { total, NEW, ASSIGNED, PLANNED, PENDING, WAITING_APPROVAL, SOLVED, CLOSED, OPEN, IN_ATTENDANCE };
 }
 
 function Badge({ label, color }: { label: string; color: string }) {
@@ -346,9 +363,8 @@ export default function IncidentsPage({ session }: { session: Session }) {
         setErr("");
         try {
             const qs = new URLSearchParams();
-            qs.set("limit", "1000");
             qs.set("pageSize", "200");
-            qs.set("maxPages", "20");
+            qs.set("maxPages", "500");
             await apiSend(`/api/incidents/sync?${qs.toString()}`, "POST", {}, session);
             await refresh();
         } catch (e: any) {
@@ -393,7 +409,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [query, session.uniqueName, session.role]);
 
-    const kpi = useMemo(() => kpiCounts(rows), [rows]);
+    const kpi = useMemo(() => pareto?.kpis ?? kpiCounts(rows), [pareto, rows]);
 
     return (
         <div>
@@ -438,13 +454,12 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <Kpi label="Chamados" value={kpi.total} tone="#BDBDBD" icon={<Info size={18} />} />
                         <Kpi label="Chamados novos" value={kpi.NEW} tone="#12E052" icon={<Info size={18} />} />
                         <Kpi label="Chamados atribuidos" value={kpi.ASSIGNED} tone="#E89432" icon={<UsersRound size={18} />} />
-                        <Kpi label="Chamados pendentes" value={kpi.PENDING} tone="#F2C334" icon={<Pause size={18} />} />
-                        <Kpi label="Chamados aguardando aprovacao" value={kpi.WAITING_APPROVAL} tone="#B44B8E" textColor="#fff" icon={<Eye size={18} />} />
-                        <Kpi label="Chamados solucionados" value={kpi.SOLVED} tone="#4387C5" textColor="#fff" icon={<CheckSquare size={18} />} />
+                        <Kpi label="Em atendimento" value={kpi.IN_ATTENDANCE} tone="#F2C334" icon={<Pause size={18} />} />
+                        <Kpi label="Chamados abertos" value={kpi.OPEN} tone="#4387C5" textColor="#fff" icon={<Eye size={18} />} />
                         <Kpi label="Chamados fechados" value={kpi.CLOSED} tone="#4A4A4A" textColor="#fff" icon={<Archive size={18} />} />
                     </div>
                     <div className="muted small" style={{ marginTop: 8 }}>
-                        Total = todos os incidentes do filtro. Os demais cards seguem os status retornados pelo GLPI.
+                        KPIs calculados sobre todo o cache GLPI filtrado. Em atendimento agrupa atribuidos, planejados, pendentes e aguardando aprovacao.
                     </div>
                     <div className="muted small" style={{ marginTop: 10 }}>
                         Periodo: <span className="mono">{from}</span> ate <span className="mono">{to}</span>

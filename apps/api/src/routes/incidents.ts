@@ -73,9 +73,9 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
             return sendAuthError(reply, e);
         }
 
-        const limit = q(req, "limit") ? asInt(q(req, "limit"), 800) : 800;
+        const limit = q(req, "limit") ? asInt(q(req, "limit"), 0) : 0;
         const pageSize = q(req, "pageSize") ? asInt(q(req, "pageSize"), 200) : 200;
-        const maxPages = q(req, "maxPages") ? asInt(q(req, "maxPages"), 20) : 20;
+        const maxPages = q(req, "maxPages") ? asInt(q(req, "maxPages"), 500) : 500;
 
         try {
             const out = await glpi.searchTickets({ status: "ALL", limit, pageSize, maxPages });

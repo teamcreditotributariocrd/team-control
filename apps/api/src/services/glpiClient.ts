@@ -455,9 +455,12 @@ export function createGlpiClient() {
         const sessionToken = await initSession();
         try {
             const pageSize = Math.max(50, Math.min(Number(q.pageSize ?? 200), 200));
-            const maxPages = Math.max(1, Math.min(Number(q.maxPages ?? 20), 200));
-            const hardLimit = Math.max(1, Math.min(Number(q.limit ?? 800), 5000));
+            const maxPages = Math.max(1, Math.min(Number(q.maxPages ?? 20), 500));
+            const requestedLimit = Number(q.limit ?? 0);
             const ids = await searchTicketIds(sessionToken, pageSize, maxPages);
+            const hardLimit = Number.isFinite(requestedLimit) && requestedLimit > 0
+                ? Math.min(requestedLimit, 50000)
+                : ids.length;
             const limitedIds = ids.slice(0, hardLimit);
             const detailed = await mapLimit(limitedIds, 10, async (id) => buildIncident(sessionToken, id));
             const filtered = postFilter(detailed, q);

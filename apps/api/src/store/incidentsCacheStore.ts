@@ -35,6 +35,34 @@ type CacheFile = {
     rows: GlpiIncident[];
 };
 
+function statusSummary(rows: GlpiIncident[]) {
+    const count = (status: string) => rows.filter((row) => String(row.status ?? "").toUpperCase() === status).length;
+    const NEW = count("NEW");
+    const ASSIGNED = count("ASSIGNED");
+    const PLANNED = count("PLANNED");
+    const PENDING = count("PENDING");
+    const WAITING_APPROVAL = count("WAITING_APPROVAL");
+    const SOLVED = count("SOLVED");
+    const CLOSED = count("CLOSED");
+    const OPEN = rows.filter((row) => {
+        const s = String(row.status ?? "").toUpperCase();
+        return s !== "SOLVED" && s !== "CLOSED";
+    }).length;
+
+    return {
+        total: rows.length,
+        NEW,
+        ASSIGNED,
+        PLANNED,
+        PENDING,
+        WAITING_APPROVAL,
+        SOLVED,
+        CLOSED,
+        OPEN,
+        IN_ATTENDANCE: ASSIGNED + PLANNED + PENDING + WAITING_APPROVAL,
+    };
+}
+
 function resolveApiDataDir() {
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename);
@@ -242,6 +270,7 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
         },
         analytics(q: GlpiIncidentsQuery) {
             const rows = filterRows(cache.rows, q);
+            const kpis = statusSummary(rows);
             const statusCounts = rows.reduce<Record<string, number>>((acc, row) => {
                 const key = String(row.status ?? "Nao classificado");
                 acc[key] = (acc[key] ?? 0) + 1;
@@ -275,6 +304,7 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
 
             return {
                 total: rows.length,
+                kpis,
                 cache: this.getMeta(),
                 insights,
                 recommendations,
