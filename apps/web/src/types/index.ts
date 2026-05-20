@@ -51,6 +51,7 @@ export type UserItemsResponse = {
         ust: number;
         workItemUrl: string | null;
         atividadeRaw: string;
+        catalog?: CatalogRow;
     }>;
     unmapped: Array<{
         id: number;

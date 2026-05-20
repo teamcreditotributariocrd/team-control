@@ -305,6 +305,15 @@ export async function ustDashboardRoutes(app: FastifyInstance, deps: any) {
                 ust,
                 workItemUrl: url,
                 atividadeRaw: raw,
+                catalog: {
+                    codigo: hit.row.codigo,
+                    grupo: hit.row.grupo,
+                    subgrupo: hit.row.subgrupo,
+                    atividade: hit.row.atividade,
+                    tipo: hit.row.tipo,
+                    complexidade: hit.row.complexidade,
+                    ust: hit.row.ust,
+                },
             });
         }
 

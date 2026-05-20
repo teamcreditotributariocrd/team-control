@@ -95,6 +95,7 @@ export default function App() {
       }
       .cardTitle{font-weight:900;margin-bottom:10px}
       .grid4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+      .grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
       .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       .kpi{font-size:28px;font-weight:950;margin-top:6px;letter-spacing:.3px}
       .label{font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -442,6 +443,7 @@ export default function App() {
       }
       .cardTitle{font-size:13px;font-weight:900;margin-bottom:12px;letter-spacing:.01em}
       .grid4{gap:14px}
+      .grid3{gap:14px}
       .grid2{gap:14px}
       .row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
       .kpi{font-size:30px;font-weight:900;letter-spacing:0;line-height:1}
@@ -627,6 +629,7 @@ export default function App() {
 
       @media(max-width:1100px){
         .grid4{grid-template-columns:repeat(2,1fr)}
+        .grid3{grid-template-columns:1fr}
         .grid2{grid-template-columns:1fr}
         .row2{grid-template-columns:1fr}
         .sidebar{display:none}
