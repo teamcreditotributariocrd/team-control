@@ -43,6 +43,12 @@ export type GlpiIncidentsQuery = {
     maxPages?: number;
 };
 
+export type GlpiIncidentsResult = {
+    rows: GlpiIncident[];
+    total: number;
+    scanned: number;
+};
+
 type SearchOption = { id: number; name: string; field?: string; datatype?: string };
 type TicketSearchOptionsResponse = Record<string, SearchOption>;
 
@@ -444,7 +450,7 @@ export function createGlpiClient() {
         };
     }
 
-    async function listTickets(q: GlpiIncidentsQuery): Promise<{ rows: GlpiIncident[]; total: number }> {
+    async function listTickets(q: GlpiIncidentsQuery): Promise<GlpiIncidentsResult> {
         const sessionToken = await initSession();
         try {
             const pageSize = Math.max(50, Math.min(Number(q.pageSize ?? 200), 200));
@@ -454,7 +460,7 @@ export function createGlpiClient() {
             const limitedIds = ids.slice(0, hardLimit);
             const detailed = await mapLimit(limitedIds, 10, async (id) => buildIncident(sessionToken, id));
             const filtered = postFilter(detailed, q);
-            return { rows: filtered, total: filtered.length };
+            return { rows: filtered, total: filtered.length, scanned: detailed.length };
         } finally {
             await killSession(sessionToken);
         }
@@ -469,7 +475,7 @@ export function createGlpiClient() {
         }
     }
 
-    async function searchTickets(q: GlpiIncidentsQuery): Promise<{ rows: GlpiIncident[]; total: number }> {
+    async function searchTickets(q: GlpiIncidentsQuery): Promise<GlpiIncidentsResult> {
         return listTickets(q);
     }
 

@@ -218,11 +218,13 @@ function KV({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
 }
 
 export default function IncidentsPage({ session }: { session: Session }) {
-    const [from, setFrom] = useState(() => addDays(isoDate(), -7));
+    const [from, setFrom] = useState(() => addDays(isoDate(), -30));
     const [to, setTo] = useState(() => isoDate());
-    const [status, setStatus] = useState<string>("OPEN");
+    const [status, setStatus] = useState<string>("ALL");
     const [search, setSearch] = useState<string>("");
     const [rows, setRows] = useState<IncidentRow[]>([]);
+    const [serverTotal, setServerTotal] = useState<number | null>(null);
+    const [scanned, setScanned] = useState<number | null>(null);
     const [err, setErr] = useState("");
     const [loading, setLoading] = useState(false);
     const [health, setHealth] = useState("");
@@ -245,11 +247,15 @@ export default function IncidentsPage({ session }: { session: Session }) {
         setLoading(true);
         setErr("");
         try {
-            const data = await apiGet<{ rows: IncidentRow[]; total?: number }>(`/api/incidents?${query}`, session);
+            const data = await apiGet<{ rows: IncidentRow[]; total?: number; scanned?: number }>(`/api/incidents?${query}`, session);
             setRows(Array.isArray(data?.rows) ? data.rows : []);
+            setServerTotal(Number.isFinite(Number(data?.total)) ? Number(data.total) : null);
+            setScanned(Number.isFinite(Number(data?.scanned)) ? Number(data.scanned) : null);
         } catch (e: any) {
             setErr(String(e?.message ?? e));
             setRows([]);
+            setServerTotal(null);
+            setScanned(null);
         } finally {
             setLoading(false);
         }
@@ -320,6 +326,10 @@ export default function IncidentsPage({ session }: { session: Session }) {
                     </div>
                     <div className="muted small" style={{ marginTop: 10 }}>
                         Periodo: <span className="mono">{from}</span> ate <span className="mono">{to}</span>
+                        {" "} | Filtro: <span className="mono">{status || "ALL"}</span>
+                        {" "} | Retornados: <span className="mono">{rows.length}</span>
+                        {serverTotal !== null ? <> / Total filtrado: <span className="mono">{serverTotal}</span></> : null}
+                        {scanned !== null ? <> / Lidos do GLPI: <span className="mono">{scanned}</span></> : null}
                     </div>
                 </div>
 
@@ -341,7 +351,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <div>
                             <div className="label">Status</div>
                             <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
-                                <option value="">Todos</option>
+                                <option value="ALL">Todos</option>
                                 <option value="OPEN">Abertos</option>
                                 <option value="NEW">Novo</option>
                                 <option value="ASSIGNED">Atribuido</option>
@@ -370,9 +380,9 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <button
                             className="btn ghost"
                             onClick={() => {
-                                setFrom(addDays(isoDate(), -7));
+                                setFrom(addDays(isoDate(), -30));
                                 setTo(isoDate());
-                                setStatus("OPEN");
+                                setStatus("ALL");
                                 setSearch("");
                             }}
                             disabled={loading}
