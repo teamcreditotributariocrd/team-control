@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, Legend, BarChart, Bar } from "recharts";
-import { Download, Star, TrendingDown, TrendingUp } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ClipboardList, Download, Sparkles, Star, TrendingDown, TrendingUp } from "lucide-react";
 
 import PageOverlayLoading from "../components/PageOverlayLoading";
 import MonthPicker from "./_shared/MonthPicker";
@@ -8,6 +8,41 @@ import StatusPill from "../components/StatusPill";
 import { formatPct } from "../lib/utils";
 import { apiGet } from "../lib/api";
 import type { FavoriteCatalogResponse, TeamSummary, UserHistoryResponse, UserItemsResponse } from "../types";
+
+type ReviewAction = {
+    severity: "bad" | "warn" | "ok";
+    title: string;
+    detail: string;
+    action: string;
+    workItemUrl?: string | null;
+};
+
+function issueLabel(reason: string) {
+    const labels: Record<string, string> = {
+        SEM_DATA_EXECUCAO: "Sem data de execucao",
+        SEM_CODIGO: "Sem atividade UST",
+        CODIGO_FORA_CATALOGO: "Codigo fora do catalogo",
+        COMPLEXIDADE_DIVERGENTE: "Complexidade divergente",
+    };
+    return labels[reason] ?? reason;
+}
+
+function normalizeTitle(title: string) {
+    return String(title ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\b(de|da|do|das|dos|e|em|para|por|com|no|na|nos|nas|o|a|os|as)\b/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function isGenericTitle(title: string) {
+    const t = normalizeTitle(title);
+    if (t.length < 14) return true;
+    return /^(ajuste|correcao|reuniao|alinhamento|atividade|demanda|tarefa|suporte|analise)( \d+)?$/.test(t);
+}
 
 export default function MePage({ session }: { session: any }) {
     const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7));
@@ -139,6 +174,104 @@ export default function MePage({ session }: { session: any }) {
         return Array.from(counts.entries()).map(([reason, count]) => ({ reason, count }));
     }, [items]);
 
+    const monthReview = useMemo(() => {
+        const actions: ReviewAction[] = [];
+        const mapped = items?.items ?? [];
+        const unmapped = items?.unmapped ?? [];
+        const allTasks = [
+            ...mapped.map((x) => ({ id: x.id, title: x.title, workItemUrl: x.workItemUrl })),
+            ...unmapped.map((x: any) => ({ id: x.id, title: x.title, workItemUrl: x.workItemUrl })),
+        ];
+
+        for (const u of unmapped.slice(0, 6)) {
+            actions.push({
+                severity: u.reason === "COMPLEXIDADE_DIVERGENTE" ? "warn" : "bad",
+                title: `${issueLabel(String(u.reason ?? "OUTRO"))} #${u.id ?? ""}`.trim(),
+                detail: String(u.title ?? "Task sem titulo"),
+                action: String(u.action ?? "Conferir campos UST no TFS."),
+                workItemUrl: u.workItemUrl,
+            });
+        }
+
+        if (myRow?.goal === 0) {
+            actions.push({
+                severity: "warn",
+                title: "Meta mensal nao configurada",
+                detail: "Sem meta, o painel nao consegue calcular ritmo, gap e risco do mes.",
+                action: "Solicite ao admin o cadastro da meta mensal.",
+            });
+        } else if (myRow?.status === "OFF_TRACK" || myRow?.status === "AT_RISK") {
+            actions.push({
+                severity: myRow.status === "OFF_TRACK" ? "bad" : "warn",
+                title: myRow.status === "OFF_TRACK" ? "Risco alto de fechar abaixo da meta" : "Ritmo abaixo do ideal",
+                detail: `Forecast ${myRow.forecast} para meta ${myRow.goal}. Gap atual: ${myRow.gap}.`,
+                action: `Priorize lancamentos pendentes e mantenha cerca de ${myRow.neededPerDay} UST por dia util restante.`,
+            });
+        }
+
+        if ((items?.count ?? 0) === 0 && (items?.unmappedCount ?? 0) === 0) {
+            actions.push({
+                severity: "warn",
+                title: "Nenhuma task localizada no mes",
+                detail: "Nao ha atividades contabilizadas nem inconsistencias para o periodo selecionado.",
+                action: "Confira se as tasks estao em Done, atribuidas ao seu usuario e com Data Execucao no mes.",
+            });
+        }
+
+        const duplicates = new Map<string, Array<{ id: number; title: string; workItemUrl?: string | null }>>();
+        for (const task of allTasks) {
+            const key = normalizeTitle(task.title);
+            if (!key || key.length < 10) continue;
+            const bucket = duplicates.get(key) ?? [];
+            bucket.push(task);
+            duplicates.set(key, bucket);
+        }
+        const duplicated = Array.from(duplicates.values()).find((group) => group.length > 1);
+        if (duplicated) {
+            actions.push({
+                severity: "warn",
+                title: "Possiveis titulos duplicados",
+                detail: duplicated.map((x) => `#${x.id}`).join(", ") + " usam titulo muito parecido.",
+                action: "Confirme se sao demandas distintas ou detalhe melhor os titulos antes do fechamento.",
+                workItemUrl: duplicated[0]?.workItemUrl,
+            });
+        }
+
+        const generic = allTasks.find((task) => isGenericTitle(task.title));
+        if (generic) {
+            actions.push({
+                severity: "warn",
+                title: "Titulo pouco descritivo",
+                detail: `#${generic.id}: ${generic.title || "sem titulo"}`,
+                action: "Inclua sistema, objeto e resultado esperado no titulo da task.",
+                workItemUrl: generic.workItemUrl,
+            });
+        }
+
+        if (actions.length === 0) {
+            actions.push({
+                severity: "ok",
+                title: "Mes pronto para fechamento",
+                detail: "Nao encontrei pendencias deterministicas nas suas tasks do periodo.",
+                action: "Mantenha a revisao antes de novos lancamentos.",
+            });
+        }
+
+        const bad = actions.filter((a) => a.severity === "bad").length;
+        const warn = actions.filter((a) => a.severity === "warn").length;
+        const score = Math.max(0, Math.min(100, 100 - bad * 18 - warn * 8));
+        const status = score >= 85 ? "ok" : score >= 65 ? "warn" : "bad";
+        const checklist = [
+            { label: "Sem inconsistencias de UST", ok: (items?.unmappedCount ?? 0) === 0 },
+            { label: "Meta mensal configurada", ok: (myRow?.goal ?? 0) > 0 },
+            { label: "Forecast cobre a meta", ok: myRow?.status === "ON_TRACK" || myRow?.status === "NO_GOAL" },
+            { label: "Ha tasks no periodo", ok: ((items?.count ?? 0) + (items?.unmappedCount ?? 0)) > 0 },
+            { label: "Titulos sem alerta simples", ok: !allTasks.some((task) => isGenericTitle(task.title)) },
+        ];
+
+        return { actions: actions.slice(0, 8), score, status, checklist };
+    }, [items, myRow]);
+
     return (
         <div>
             <PageOverlayLoading show={loading} label={loadingLabel} />
@@ -192,6 +325,67 @@ export default function MePage({ session }: { session: any }) {
                             <div className="muted small">Forecast</div>
                             <div className="kpi">{myRow.forecast}</div>
                             <div className="muted small">Gap: {myRow.gap}</div>
+                        </div>
+                    </div>
+
+                    <div className="card" style={{ marginTop: 14 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 12 }}>
+                            <div>
+                                <div className="cardTitle" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                    <Sparkles size={16} />
+                                    <span>Revisar meu mes</span>
+                                </div>
+                                <div className="muted small">Checklist deterministico para corrigir lancamentos antes do fechamento.</div>
+                            </div>
+                            <span className={`pill ${monthReview.status}`}>Nota {monthReview.score}/100</span>
+                        </div>
+
+                        <div className="grid2">
+                            <div>
+                                <div className="muted small" style={{ marginBottom: 8 }}>Checklist</div>
+                                <div style={{ display: "grid", gap: 8 }}>
+                                    {monthReview.checklist.map((item) => (
+                                        <div key={item.label} className="check">
+                                            <CheckCircle2 size={16} style={{ color: item.ok ? "#6EE7C4" : "#FDB022" }} />
+                                            <span>{item.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="muted small" style={{ marginBottom: 8 }}>Acoes sugeridas</div>
+                                <div style={{ display: "grid", gap: 10 }}>
+                                    {monthReview.actions.map((action, idx) => (
+                                        <div
+                                            key={`${action.title}-${idx}`}
+                                            style={{
+                                                border: "1px solid rgba(255,255,255,.10)",
+                                                borderRadius: 8,
+                                                padding: 12,
+                                                background: "rgba(255,255,255,.025)",
+                                            }}
+                                        >
+                                            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                                                {action.severity === "ok" ? (
+                                                    <CheckCircle2 size={16} style={{ color: "#6EE7C4" }} />
+                                                ) : action.severity === "bad" ? (
+                                                    <AlertTriangle size={16} style={{ color: "#F97066" }} />
+                                                ) : (
+                                                    <ClipboardList size={16} style={{ color: "#FDB022" }} />
+                                                )}
+                                                <strong>{action.title}</strong>
+                                            </div>
+                                            <div className="muted small">{action.detail}</div>
+                                            <div className="small" style={{ marginTop: 8 }}>{action.action}</div>
+                                            {action.workItemUrl && (
+                                                <a className="link small" href={action.workItemUrl} target="_blank" rel="noreferrer" style={{ display: "inline-block", marginTop: 8 }}>
+                                                    Abrir no TFS
+                                                </a>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         </div>
                     </div>
 
