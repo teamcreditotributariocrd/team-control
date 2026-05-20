@@ -5,6 +5,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, CartesianG
 import PageOverlayLoading from "../components/PageOverlayLoading";
 import MonthPicker from "./_shared/MonthPicker";
 import StatusPill from "../components/StatusPill";
+import WorkProfileMap from "../components/WorkProfileMap";
 import { formatPct } from "../lib/utils";
 import { apiGet } from "../lib/api";
 import type { TeamSummary, UserItemsResponse } from "../types";
@@ -131,6 +132,8 @@ export default function UserDrilldownPage({ session }: { session: any }) {
                             </ResponsiveContainer>
                         </div>
                     </div>
+
+                    <WorkProfileMap items={data.items} />
 
                     <div className="card" style={{ marginTop: 14 }}>
                         <div className="cardTitle">Tasks (auditavel)</div>
