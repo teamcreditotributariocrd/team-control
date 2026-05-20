@@ -108,7 +108,7 @@ const tableLines = sorted.map((r) => {
 });
 
 const content =
-    `**UST • Daily Progress Report**
+    `**Team Control • Daily Progress Report**
 > **Data:** ${today}  •  **Mês:** ${month}  •  **Progresso do time:** **${teamPct}**
 
 \`\`\`

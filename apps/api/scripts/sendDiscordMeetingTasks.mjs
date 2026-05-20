@@ -16,7 +16,7 @@
 //   ALERT_ADMIN_ROLE=admin
 //
 // Opcional (por canal):
-//   DISCORD_MEETINGS_WEBHOOK_USERNAME=UST Control
+//   DISCORD_MEETINGS_WEBHOOK_USERNAME=Team Control
 //   DISCORD_MEETINGS_WEBHOOK_AVATAR_URL=
 //
 // Fallback (global):

@@ -38,7 +38,7 @@ export default function Layout({
                         <LayoutDashboard size={16} />
                     </div>
                     <div>
-                        <div className="brandTitle">UST Control</div>
+                        <div className="brandTitle">Team Control</div>
                         <div className="brandSub">COTIN / TFS</div>
                     </div>
                 </div>
@@ -70,7 +70,7 @@ export default function Layout({
             <main className="main">
                 <header className="topbar">
                     <div>
-                        <div className="topTitle">Acompanhamento mensal de UST</div>
+                        <div className="topTitle">Team Control</div>
                         <div className="topSubtitle">Gestao operacional, metas e auditoria TFS</div>
                     </div>
                     <div className="topRight">

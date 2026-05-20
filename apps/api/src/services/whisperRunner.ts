@@ -31,7 +31,7 @@ function findAppRoot(startDir: string) {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ APP_ROOT deve virar: C:\...\ust-apurador-win\apps\api
+// APP_ROOT deve virar: C:\...\team-control\apps\api
 export const APP_ROOT = findAppRoot(__dirname);
 export const BIN_DIR = path.join(APP_ROOT, "bin");
 export const DATA_DIR = path.join(APP_ROOT, "data");

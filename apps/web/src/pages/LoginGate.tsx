@@ -75,7 +75,7 @@ export default function LoginGate({ setSession }: Props) {
                         <ShieldCheck size={22} strokeWidth={2.4} />
                     </div>
                     <div>
-                        <div className="loginBrand">UST Control</div>
+                        <div className="loginBrand">Team Control</div>
                         <div className="loginCaption">COTIN / TFS</div>
                     </div>
                 </div>

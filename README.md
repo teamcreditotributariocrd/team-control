@@ -1,4 +1,4 @@
-# UST Apurador (TFS / Azure DevOps Server - NTLM)
+# Team Control (TFS / Azure DevOps Server - NTLM)
 
 Monorepo com:
 - **apps/api**: Node.js + TypeScript + Fastify (integração TFS via NTLM, import do catálogo XLSX, apuração UST por período).
@@ -40,4 +40,3 @@ Monorepo com:
 ## Observações NTLM
 - O backend usa `axios-ntlm`. Em ambiente corporativo, pode exigir ajustes (proxy / certificados).
 - Se seu TFS usa TLS interno, ajuste `NODE_TLS_REJECT_UNAUTHORIZED` **somente para dev** (não recomendado em produção).
-

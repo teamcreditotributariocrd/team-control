@@ -1,5 +1,5 @@
 {
-  "name": "ust-apurador",
+  "name": "team-control",
   "private": true,
   "workspaces": [
     "apps/*"

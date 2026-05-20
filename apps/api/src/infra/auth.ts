@@ -24,9 +24,9 @@ function base64UrlDecode(input: string) {
 }
 
 function authSecret() {
-    const secret = process.env.UST_AUTH_SECRET;
+    const secret = process.env.TEAM_CONTROL_AUTH_SECRET ?? process.env.UST_AUTH_SECRET;
     if (!secret || secret.length < 24) {
-        throw new Error("UST_AUTH_SECRET must be set with at least 24 characters");
+        throw new Error("TEAM_CONTROL_AUTH_SECRET must be set with at least 24 characters");
     }
     return secret;
 }
