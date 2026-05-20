@@ -125,6 +125,16 @@ async function glpiFetchJson(url: string, init?: RequestInit) {
     return { data, res };
 }
 
+function parseContentRange(value: string | null) {
+    const m = String(value ?? "").match(/(\d+)\s*-\s*(\d+)\s*\/\s*(\d+)/);
+    if (!m) return null;
+    return {
+        start: Number(m[1]),
+        end: Number(m[2]),
+        total: Number(m[3]),
+    };
+}
+
 async function mapLimit<T, R>(
     items: T[],
     limit: number,
@@ -312,9 +322,14 @@ export function createGlpiClient() {
         forced.forEach((fid, i) => paramsBase.set(`forcedisplay[${i}]`, String(fid)));
 
         const ids: number[] = [];
+        let total: number | null = null;
+        let start = 0;
+
         for (let page = 0; page < maxPages; page++) {
-            const start = page * pageSize;
-            const end = start + pageSize - 1;
+            if (total != null && start >= total) break;
+            const end = total == null
+                ? start + pageSize - 1
+                : Math.min(start + pageSize - 1, total - 1);
             const params = new URLSearchParams(paramsBase.toString());
             params.set("range", `${start}-${end}`);
 
@@ -323,6 +338,7 @@ export function createGlpiClient() {
                 headers: { "App-Token": appToken, "Session-Token": sessionToken },
             });
 
+            total = Number(data?.totalcount ?? parseContentRange(res.headers.get("Content-Range"))?.total ?? total);
             const rows: any[] = Array.isArray(data?.data) ? data.data : [];
             if (!rows.length) break;
 
@@ -335,7 +351,8 @@ export function createGlpiClient() {
                 .filter((n) => Number.isFinite(n));
 
             ids.push(...pageIds);
-            if (res.status !== 206) break;
+            start = end + 1;
+            if (res.status !== 206 || (total != null && start >= total)) break;
         }
 
         const seen = new Set<number>();
