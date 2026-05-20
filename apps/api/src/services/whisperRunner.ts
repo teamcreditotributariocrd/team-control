@@ -12,17 +12,19 @@ function findAppRoot(startDir: string) {
     let dir = startDir;
 
     for (let i = 0; i < 12; i++) {
-        if (fs.existsSync(path.join(dir, "bin"))) return dir;
+        if (fs.existsSync(path.join(dir, "package.json")) && fs.existsSync(path.join(dir, "src"))) return dir;
         const parent = path.dirname(dir);
         if (parent === dir) break;
         dir = parent;
     }
 
     // fallback: se você roda o server com CWD em apps/api, isso resolve:
-    if (fs.existsSync(path.join(process.cwd(), "bin"))) return process.cwd();
+    if (fs.existsSync(path.join(process.cwd(), "package.json")) && fs.existsSync(path.join(process.cwd(), "src"))) {
+        return process.cwd();
+    }
 
     throw new Error(
-        `APP_ROOT not found. startDir=${startDir} cwd=${process.cwd()} (expected a 'bin' folder in apps/api)`
+        `APP_ROOT not found. startDir=${startDir} cwd=${process.cwd()} (expected apps/api package.json and src)`
     );
 }
 
@@ -33,6 +35,7 @@ const __dirname = path.dirname(__filename);
 export const APP_ROOT = findAppRoot(__dirname);
 export const BIN_DIR = path.join(APP_ROOT, "bin");
 export const DATA_DIR = path.join(APP_ROOT, "data");
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 function findWhisperExe() {
     const candidates = [

@@ -15,12 +15,12 @@ const __dirname = path.dirname(__filename);
 function findAppRoot(startDir: string) {
     let dir = startDir;
     for (let i = 0; i < 12; i++) {
-        if (fs.existsSync(path.join(dir, "bin")) && fs.existsSync(path.join(dir, "data"))) return dir;
+        if (fs.existsSync(path.join(dir, "package.json")) && fs.existsSync(path.join(dir, "src"))) return dir;
         const parent = path.dirname(dir);
         if (parent === dir) break;
         dir = parent;
     }
-    if (fs.existsSync(path.join(process.cwd(), "bin")) && fs.existsSync(path.join(process.cwd(), "data"))) {
+    if (fs.existsSync(path.join(process.cwd(), "package.json")) && fs.existsSync(path.join(process.cwd(), "src"))) {
         return process.cwd();
     }
     throw new Error(`APP_ROOT não encontrado. start=${startDir} cwd=${process.cwd()}`);
@@ -29,6 +29,7 @@ function findAppRoot(startDir: string) {
 const APP_ROOT = findAppRoot(__dirname);
 const BIN_DIR = path.join(APP_ROOT, "bin");
 const DATA_DIR = path.join(APP_ROOT, "data");
+fs.mkdirSync(DATA_DIR, { recursive: true });
 
 const DEFAULT_EXE = path.join(BIN_DIR, "whispercpp", "whisper-cli.exe");
 const DEFAULT_MODEL = path.join(BIN_DIR, "whispercpp", "models", "ggml-small.bin");
