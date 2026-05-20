@@ -125,10 +125,15 @@ function kpiCounts(rows: IncidentRow[]) {
     const norm = (x: string) => String(x ?? "").toUpperCase();
     const total = rows.length;
     const NEW = rows.filter((r) => norm(r.status) === "NEW").length;
-    const IN_PROGRESS = rows.filter((r) => ["ASSIGNED", "PLANNED", "PENDING"].includes(norm(r.status))).length;
+    const ATTENDANCE = rows.filter((r) => ["ASSIGNED", "PLANNED", "PENDING"].includes(norm(r.status))).length;
+    const ASSIGNED = rows.filter((r) => norm(r.status) === "ASSIGNED").length;
+    const PLANNED = rows.filter((r) => norm(r.status) === "PLANNED").length;
+    const PENDING = rows.filter((r) => norm(r.status) === "PENDING").length;
     const SOLVED = rows.filter((r) => norm(r.status) === "SOLVED").length;
     const CLOSED = rows.filter((r) => norm(r.status) === "CLOSED").length;
-    return { total, NEW, IN_PROGRESS, SOLVED, CLOSED };
+    const DONE = SOLVED + CLOSED;
+    const OPEN = NEW + ATTENDANCE;
+    return { total, NEW, ATTENDANCE, ASSIGNED, PLANNED, PENDING, SOLVED, CLOSED, DONE, OPEN };
 }
 
 function Badge({ label, color }: { label: string; color: string }) {
@@ -434,9 +439,12 @@ export default function IncidentsPage({ session }: { session: Session }) {
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10, marginTop: 10 }}>
                         <Kpi label="Total" value={kpi.total} />
                         <Kpi label="Novos" value={kpi.NEW} />
-                        <Kpi label="Em andamento" value={kpi.IN_PROGRESS} />
-                        <Kpi label="Resolvidos" value={kpi.SOLVED} />
-                        <Kpi label="Fechados" value={kpi.CLOSED} />
+                        <Kpi label="Atendimentos" value={kpi.ATTENDANCE} />
+                        <Kpi label="Abertos" value={kpi.OPEN} />
+                        <Kpi label="Resolvidos + fechados" value={kpi.DONE} />
+                    </div>
+                    <div className="muted small" style={{ marginTop: 8 }}>
+                        Atendimentos = atribuidos + planejados + pendentes. Total = todos os incidentes do filtro, independentemente do status.
                     </div>
                     <div className="muted small" style={{ marginTop: 10 }}>
                         Periodo: <span className="mono">{from}</span> ate <span className="mono">{to}</span>
