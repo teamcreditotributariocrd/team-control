@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { apiGet, type Session } from "../lib/api";
+import { apiGet, apiSend, type Session } from "../lib/api";
 
 type IncidentRow = {
     id: number | string;
@@ -18,6 +18,30 @@ type IncidentRow = {
     category?: string | null;
     url?: string | null;
     source?: "GLPI" | "TFS" | string;
+};
+
+type IncidentCacheMeta = {
+    updatedAt: string | null;
+    totalCached: number;
+};
+
+type ParetoRow = {
+    label: string;
+    count: number;
+    pct: number;
+    cumulativePct: number;
+    sampleIds: number[];
+};
+
+type ParetoResponse = {
+    total: number;
+    cache: IncidentCacheMeta;
+    pareto: {
+        subject: ParetoRow[];
+        category: ParetoRow[];
+        requester: ParetoRow[];
+        groupTech: ParetoRow[];
+    };
 };
 
 function cls(...xs: (string | false | null | undefined)[]) {
@@ -225,8 +249,11 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [rows, setRows] = useState<IncidentRow[]>([]);
     const [serverTotal, setServerTotal] = useState<number | null>(null);
     const [scanned, setScanned] = useState<number | null>(null);
+    const [cache, setCache] = useState<IncidentCacheMeta | null>(null);
+    const [pareto, setPareto] = useState<ParetoResponse | null>(null);
     const [err, setErr] = useState("");
     const [loading, setLoading] = useState(false);
+    const [syncing, setSyncing] = useState(false);
     const [health, setHealth] = useState("");
     const [healthLoading, setHealthLoading] = useState(false);
     const [selected, setSelected] = useState<IncidentRow | null>(null);
@@ -247,17 +274,39 @@ export default function IncidentsPage({ session }: { session: Session }) {
         setLoading(true);
         setErr("");
         try {
-            const data = await apiGet<{ rows: IncidentRow[]; total?: number; scanned?: number }>(`/api/incidents?${query}`, session);
+            const data = await apiGet<{ rows: IncidentRow[]; total?: number; scanned?: number; cache?: IncidentCacheMeta }>(`/api/incidents?${query}`, session);
             setRows(Array.isArray(data?.rows) ? data.rows : []);
             setServerTotal(Number.isFinite(Number(data?.total)) ? Number(data.total) : null);
             setScanned(Number.isFinite(Number(data?.scanned)) ? Number(data.scanned) : null);
+            setCache(data.cache ?? null);
+            const analytics = await apiGet<ParetoResponse>(`/api/incidents/analytics/pareto?${query}`, session);
+            setPareto(analytics);
+            setCache(analytics.cache ?? data.cache ?? null);
         } catch (e: any) {
             setErr(String(e?.message ?? e));
             setRows([]);
             setServerTotal(null);
             setScanned(null);
+            setPareto(null);
         } finally {
             setLoading(false);
+        }
+    }
+
+    async function syncGlpi() {
+        setSyncing(true);
+        setErr("");
+        try {
+            const qs = new URLSearchParams();
+            qs.set("limit", "1000");
+            qs.set("pageSize", "200");
+            qs.set("maxPages", "20");
+            await apiSend(`/api/incidents/sync?${qs.toString()}`, "POST", {}, session);
+            await refresh();
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+        } finally {
+            setSyncing(false);
         }
     }
 
@@ -292,6 +341,9 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 <div className="pageHeaderRight" style={{ gap: 10 }}>
                     <button className="btn ghost" onClick={testGlpi} disabled={healthLoading || loading}>
                         {healthLoading ? "Testando..." : "Testar GLPI"}
+                    </button>
+                    <button className="btn primary" onClick={syncGlpi} disabled={syncing || loading}>
+                        {syncing ? "Sincronizando..." : "Sincronizar GLPI"}
                     </button>
                     <button className="btn ghost" onClick={refresh} disabled={loading}>
                         Atualizar
@@ -330,6 +382,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         {" "} | Retornados: <span className="mono">{rows.length}</span>
                         {serverTotal !== null ? <> / Total filtrado: <span className="mono">{serverTotal}</span></> : null}
                         {scanned !== null ? <> / Lidos do GLPI: <span className="mono">{scanned}</span></> : null}
+                        {cache ? <> / Cache: <span className="mono">{cache.totalCached}</span> em <span className="mono">{cache.updatedAt ? fmtDateTime(cache.updatedAt) : "nunca"}</span></> : null}
                     </div>
                 </div>
 
@@ -390,6 +443,19 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             Reset
                         </button>
                     </div>
+                </div>
+            </div>
+
+            <div className="card" style={{ marginTop: 12 }}>
+                <div className="cardTitle">Pareto de causas provaveis</div>
+                <div className="muted small" style={{ marginBottom: 12 }}>
+                    Calculado sobre os incidentes do cache local conforme os filtros atuais.
+                </div>
+                <div className="grid2">
+                    <ParetoColumn title="Por assunto" rows={pareto?.pareto.subject ?? []} />
+                    <ParetoColumn title="Por categoria" rows={pareto?.pareto.category ?? []} />
+                    <ParetoColumn title="Por solicitante" rows={pareto?.pareto.requester ?? []} />
+                    <ParetoColumn title="Por grupo tecnico" rows={pareto?.pareto.groupTech ?? []} />
                 </div>
             </div>
 
@@ -466,6 +532,34 @@ function Kpi({ label, value }: { label: string; value: number }) {
         <div style={{ padding: 12, border: "1px solid rgba(255,255,255,.08)", borderRadius: 12, background: "rgba(255,255,255,.03)" }}>
             <div className="muted small">{label}</div>
             <div className="kpi" style={{ marginTop: 6 }}>{value}</div>
+        </div>
+    );
+}
+
+function ParetoColumn({ title, rows }: { title: string; rows: ParetoRow[] }) {
+    return (
+        <div className="card" style={{ padding: 12 }}>
+            <div className="cardTitle">{title}</div>
+            {!rows.length ? (
+                <div className="muted small">Sem dados para os filtros atuais.</div>
+            ) : (
+                <div style={{ display: "grid", gap: 10 }}>
+                    {rows.slice(0, 6).map((row) => (
+                        <div key={`${title}-${row.label}`}>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                                <div className="strong" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</div>
+                                <div className="mono small">{row.count} | {row.pct}%</div>
+                            </div>
+                            <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden", marginTop: 6 }}>
+                                <div style={{ width: `${Math.max(3, row.cumulativePct)}%`, height: "100%", background: "linear-gradient(90deg, #6EE7C4, #8DB7FF)" }} />
+                            </div>
+                            <div className="muted small" style={{ marginTop: 4 }}>
+                                Acumulado {row.cumulativePct}% / Ex.: {row.sampleIds.join(", ")}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

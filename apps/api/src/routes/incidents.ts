@@ -35,7 +35,7 @@ function sendGlpiError(reply: any, e: any) {
     return reply.code(502).send({ error: "GLPI_ERROR", detail: message });
 }
 
-export async function incidentsRoutes(app: FastifyInstance) {
+export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typeof import("../serverDeps.js").createDeps>) {
     const glpi = createGlpiClient();
 
     app.get("/api/incidents", async (req, reply) => {
@@ -53,13 +53,53 @@ export async function incidentsRoutes(app: FastifyInstance) {
         const limit = q(req, "limit") ? asInt(q(req, "limit"), 800) : 800;
         const pageSize = q(req, "pageSize") ? asInt(q(req, "pageSize"), 200) : 200;
         const maxPages = q(req, "maxPages") ? asInt(q(req, "maxPages"), 20) : 20;
+        const live = String(q(req, "live") ?? "").toLowerCase() === "true";
 
         try {
-            const out = await glpi.searchTickets({ status, search, from, to, limit, pageSize, maxPages });
+            const out = live
+                ? await glpi.searchTickets({ status, search, from, to, limit, pageSize, maxPages })
+                : deps.incidentsCacheStore.query({ status, search, from, to, limit, pageSize, maxPages });
             return reply.send(out);
         } catch (e: any) {
             return sendGlpiError(reply, e);
         }
+    });
+
+    app.post("/api/incidents/sync", async (req, reply) => {
+        const user = getUser(req);
+        try {
+            assertAdmin(user);
+        } catch (e: any) {
+            return sendAuthError(reply, e);
+        }
+
+        const limit = q(req, "limit") ? asInt(q(req, "limit"), 800) : 800;
+        const pageSize = q(req, "pageSize") ? asInt(q(req, "pageSize"), 200) : 200;
+        const maxPages = q(req, "maxPages") ? asInt(q(req, "maxPages"), 20) : 20;
+
+        try {
+            const out = await glpi.searchTickets({ status: "ALL", limit, pageSize, maxPages });
+            const cache = deps.incidentsCacheStore.replace(out.rows);
+            return reply.send({ ok: true, fetched: out.rows.length, scanned: out.scanned, cache });
+        } catch (e: any) {
+            return sendGlpiError(reply, e);
+        }
+    });
+
+    app.get("/api/incidents/analytics/pareto", async (req, reply) => {
+        const user = getUser(req);
+        try {
+            assertAdmin(user);
+        } catch (e: any) {
+            return sendAuthError(reply, e);
+        }
+
+        const status = q(req, "status") ? String(q(req, "status")) : undefined;
+        const search = q(req, "search") ? String(q(req, "search")) : undefined;
+        const from = asYmd(q(req, "from"));
+        const to = asYmd(q(req, "to"));
+
+        return reply.send(deps.incidentsCacheStore.analytics({ status, search, from, to }));
     });
 
     app.get("/api/incidents/:id", async (req, reply) => {

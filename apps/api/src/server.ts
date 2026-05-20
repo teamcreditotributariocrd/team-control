@@ -85,7 +85,7 @@ await ustDashboardRoutes(app, deps);
 
 await meetingsRoutes(app, deps);
 
-await app.register(incidentsRoutes);
+await incidentsRoutes(app, deps);
 await app.register(tfsTasksRoutes);
 await discordDailyScheduleRoutes(app, deps, apiRoot);
 
