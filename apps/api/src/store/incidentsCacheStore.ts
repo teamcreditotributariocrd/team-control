@@ -19,6 +19,17 @@ type IncidentClassification = {
     confidence: number;
 };
 
+type ThemeDetail = {
+    theme: string;
+    count: number;
+    pct: number;
+    suggestedAction: string;
+    rows: Array<GlpiIncident & { classification: IncidentClassification }>;
+    requesters: IncidentParetoRow[];
+    statuses: IncidentParetoRow[];
+    priorities: IncidentParetoRow[];
+};
+
 type CacheFile = {
     updatedAt: string | null;
     rows: GlpiIncident[];
@@ -270,11 +281,28 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
                 pareto: {
                     theme: buildPareto(rows, "theme", 10),
                     symptom: buildPareto(rows, "symptom", 10),
-                    object: buildPareto(rows, "object", 10),
                     requester: buildPareto(rows, "requester", 10),
                     status: buildPareto(rows, "status", 10),
                     priority: buildPareto(rows, "priority", 10),
                 },
+            };
+        },
+        themeDetail(q: GlpiIncidentsQuery, theme: string): ThemeDetail | null {
+            const rows = filterRows(cache.rows, q)
+                .map((row) => ({ ...row, classification: classifyIncident(row) }))
+                .filter((row) => row.classification.theme === theme);
+            if (!rows.length) return null;
+            const allRows = filterRows(cache.rows, q);
+            const first = rows[0].classification;
+            return {
+                theme,
+                count: rows.length,
+                pct: Number(((rows.length / Math.max(allRows.length, 1)) * 100).toFixed(1)),
+                suggestedAction: first.suggestedAction,
+                rows: rows.slice(0, 200),
+                requesters: buildPareto(rows, "requester", 8),
+                statuses: buildPareto(rows, "status", 8),
+                priorities: buildPareto(rows, "priority", 8),
             };
         },
     };

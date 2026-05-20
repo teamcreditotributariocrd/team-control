@@ -102,6 +102,24 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
         return reply.send(deps.incidentsCacheStore.analytics({ status, search, from, to }));
     });
 
+    app.get("/api/incidents/analytics/theme/:theme", async (req, reply) => {
+        const user = getUser(req);
+        try {
+            assertAdmin(user);
+        } catch (e: any) {
+            return sendAuthError(reply, e);
+        }
+
+        const theme = decodeURIComponent(String((req.params as any)?.theme ?? ""));
+        const status = q(req, "status") ? String(q(req, "status")) : undefined;
+        const search = q(req, "search") ? String(q(req, "search")) : undefined;
+        const from = asYmd(q(req, "from"));
+        const to = asYmd(q(req, "to"));
+        const detail = deps.incidentsCacheStore.themeDetail({ status, search, from, to }, theme);
+        if (!detail) return reply.code(404).send({ error: "THEME_NOT_FOUND" });
+        return reply.send(detail);
+    });
+
     app.get("/api/incidents/:id", async (req, reply) => {
         const user = getUser(req);
         try {

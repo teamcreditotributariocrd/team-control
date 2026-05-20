@@ -47,11 +47,21 @@ type ParetoResponse = {
     pareto: {
         theme: ParetoRow[];
         symptom: ParetoRow[];
-        object: ParetoRow[];
         requester: ParetoRow[];
         status: ParetoRow[];
         priority: ParetoRow[];
     };
+};
+
+type ThemeDetailResponse = {
+    theme: string;
+    count: number;
+    pct: number;
+    suggestedAction: string;
+    rows: Array<IncidentRow & { classification?: { theme: string; symptom: string; object: string; suggestedAction: string; confidence: number } }>;
+    requesters: ParetoRow[];
+    statuses: ParetoRow[];
+    priorities: ParetoRow[];
 };
 
 function cls(...xs: (string | false | null | undefined)[]) {
@@ -267,6 +277,8 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [health, setHealth] = useState("");
     const [healthLoading, setHealthLoading] = useState(false);
     const [selected, setSelected] = useState<IncidentRow | null>(null);
+    const [themeDetail, setThemeDetail] = useState<ThemeDetailResponse | null>(null);
+    const [themeLoading, setThemeLoading] = useState(false);
 
     const query = useMemo(() => {
         const qs = new URLSearchParams();
@@ -317,6 +329,23 @@ export default function IncidentsPage({ session }: { session: Session }) {
             setErr(String(e?.message ?? e));
         } finally {
             setSyncing(false);
+        }
+    }
+
+    async function openTheme(theme: string) {
+        setThemeLoading(true);
+        setErr("");
+        try {
+            const detail = await apiGet<ThemeDetailResponse>(
+                `/api/incidents/analytics/theme/${encodeURIComponent(theme)}?${query}`,
+                session
+            );
+            setThemeDetail(detail);
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+            setThemeDetail(null);
+        } finally {
+            setThemeLoading(false);
         }
     }
 
@@ -472,11 +501,70 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 </div>
 
                 <div className="grid2">
-                    <ParetoColumn title="Temas recorrentes" rows={pareto?.pareto.theme ?? []} />
+                    <ParetoColumn title="Temas recorrentes" rows={pareto?.pareto.theme ?? []} onSelect={openTheme} />
                     <ParetoColumn title="Sintomas recorrentes" rows={pareto?.pareto.symptom ?? []} />
-                    <ParetoColumn title="Objetos afetados" rows={pareto?.pareto.object ?? []} />
                     <ParetoColumn title="Solicitantes" rows={pareto?.pareto.requester ?? []} />
                 </div>
+
+                {themeLoading && <div className="muted small" style={{ marginTop: 12 }}>Carregando detalhe do tema...</div>}
+
+                {themeDetail && (
+                    <div className="card" style={{ marginTop: 14, padding: 12 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start" }}>
+                            <div>
+                                <div className="cardTitle" style={{ marginBottom: 4 }}>Tema: {themeDetail.theme}</div>
+                                <div className="muted small">
+                                    {themeDetail.count} incidentes ({themeDetail.pct}% do filtro atual)
+                                </div>
+                            </div>
+                            <button className="btn ghost small" onClick={() => setThemeDetail(null)}>Fechar</button>
+                        </div>
+
+                        <div className="alert" style={{ marginTop: 12, marginBottom: 12 }}>
+                            {themeDetail.suggestedAction}
+                        </div>
+
+                        <div className="grid3" style={{ marginBottom: 12 }}>
+                            <MiniPareto title="Solicitantes" rows={themeDetail.requesters} />
+                            <MiniPareto title="Status" rows={themeDetail.statuses} />
+                            <MiniPareto title="Prioridade" rows={themeDetail.priorities} />
+                        </div>
+
+                        <div className="tableWrap">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Status</th>
+                                        <th>Prioridade</th>
+                                        <th>Titulo</th>
+                                        <th>Solicitante</th>
+                                        <th>Sintoma</th>
+                                        <th>Link</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {themeDetail.rows.map((r) => {
+                                        const sb = statusBadge(r.status);
+                                        return (
+                                            <tr key={`theme-${r.id}`} onClick={() => setSelected(r)} style={{ cursor: "pointer" }}>
+                                                <td className="mono">{r.id}</td>
+                                                <td><Badge label={sb.label} color={sb.color} /></td>
+                                                <td>{priorityBadge(r.priority)}</td>
+                                                <td style={{ maxWidth: 520 }}>{r.title}</td>
+                                                <td className="mono">{r.requester ?? "-"}</td>
+                                                <td>{r.classification?.symptom ?? "-"}</td>
+                                                <td>
+                                                    {r.url ? <a className="link" href={r.url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>Abrir</a> : "-"}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 <div className="card" style={{ marginTop: 14, padding: 12 }}>
                     <div className="cardTitle">Sugestoes de acao</div>
@@ -591,7 +679,7 @@ function Kpi({ label, value }: { label: string; value: number }) {
     );
 }
 
-function ParetoColumn({ title, rows }: { title: string; rows: ParetoRow[] }) {
+function ParetoColumn({ title, rows, onSelect }: { title: string; rows: ParetoRow[]; onSelect?: (label: string) => void }) {
     return (
         <div className="card" style={{ padding: 12 }}>
             <div className="cardTitle">{title}</div>
@@ -600,7 +688,12 @@ function ParetoColumn({ title, rows }: { title: string; rows: ParetoRow[] }) {
             ) : (
                 <div style={{ display: "grid", gap: 10 }}>
                     {rows.slice(0, 6).map((row) => (
-                        <div key={`${title}-${row.label}`}>
+                        <div
+                            key={`${title}-${row.label}`}
+                            onClick={() => onSelect?.(row.label)}
+                            style={onSelect ? { cursor: "pointer" } : undefined}
+                            title={onSelect ? "Clique para ver os incidentes deste tema" : undefined}
+                        >
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
                                 <div className="strong" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</div>
                                 <div className="mono small">{row.count} | {row.pct}%</div>
@@ -615,6 +708,23 @@ function ParetoColumn({ title, rows }: { title: string; rows: ParetoRow[] }) {
                     ))}
                 </div>
             )}
+        </div>
+    );
+}
+
+function MiniPareto({ title, rows }: { title: string; rows: ParetoRow[] }) {
+    return (
+        <div className="card" style={{ padding: 10 }}>
+            <div className="muted small" style={{ marginBottom: 8 }}>{title}</div>
+            <div style={{ display: "grid", gap: 6 }}>
+                {rows.slice(0, 4).map((row) => (
+                    <div key={`${title}-${row.label}`} style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+                        <span className="strong" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</span>
+                        <span className="mono small">{row.count}</span>
+                    </div>
+                ))}
+                {!rows.length && <span className="muted small">Sem dados</span>}
+            </div>
         </div>
     );
 }
