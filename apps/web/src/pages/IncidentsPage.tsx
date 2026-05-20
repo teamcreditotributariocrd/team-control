@@ -36,11 +36,12 @@ type ParetoRow = {
 type ParetoResponse = {
     total: number;
     cache: IncidentCacheMeta;
+    insights: string[];
     pareto: {
-        subject: ParetoRow[];
-        category: ParetoRow[];
+        titlePattern: ParetoRow[];
         requester: ParetoRow[];
-        groupTech: ParetoRow[];
+        status: ParetoRow[];
+        priority: ParetoRow[];
     };
 };
 
@@ -343,7 +344,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         {healthLoading ? "Testando..." : "Testar GLPI"}
                     </button>
                     <button className="btn primary" onClick={syncGlpi} disabled={syncing || loading}>
-                        {syncing ? "Sincronizando..." : "Sincronizar GLPI"}
+                        {syncing ? "Sincronizando..." : "Atualizar cache GLPI"}
                     </button>
                     <button className="btn ghost" onClick={refresh} disabled={loading}>
                         Atualizar
@@ -382,7 +383,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         {" "} | Retornados: <span className="mono">{rows.length}</span>
                         {serverTotal !== null ? <> / Total filtrado: <span className="mono">{serverTotal}</span></> : null}
                         {scanned !== null ? <> / Lidos do GLPI: <span className="mono">{scanned}</span></> : null}
-                        {cache ? <> / Cache: <span className="mono">{cache.totalCached}</span> em <span className="mono">{cache.updatedAt ? fmtDateTime(cache.updatedAt) : "nunca"}</span></> : null}
+                        {cache ? <> / Cache local: <span className="mono">{cache.totalCached}</span> chamados, atualizado em <span className="mono">{cache.updatedAt ? fmtDateTime(cache.updatedAt) : "nunca"}</span></> : null}
                     </div>
                 </div>
 
@@ -447,15 +448,25 @@ export default function IncidentsPage({ session }: { session: Session }) {
             </div>
 
             <div className="card" style={{ marginTop: 12 }}>
-                <div className="cardTitle">Pareto de causas provaveis</div>
+                <div className="cardTitle">Analise de incidentes</div>
                 <div className="muted small" style={{ marginBottom: 12 }}>
-                    Calculado sobre os incidentes do cache local conforme os filtros atuais.
+                    Leitura baseada no cache local e nos titulos preenchidos pelos usuarios.
                 </div>
+
+                <div className="grid4" style={{ marginBottom: 14 }}>
+                    {(pareto?.insights?.length ? pareto.insights : ["Sincronize o GLPI para gerar uma leitura operacional."]).slice(0, 4).map((text, idx) => (
+                        <div className="card" key={`incident-insight-${idx}`} style={{ padding: 12 }}>
+                            <div className="muted small">Insight {idx + 1}</div>
+                            <div className="strong" style={{ marginTop: 6 }}>{text}</div>
+                        </div>
+                    ))}
+                </div>
+
                 <div className="grid2">
-                    <ParetoColumn title="Por assunto" rows={pareto?.pareto.subject ?? []} />
-                    <ParetoColumn title="Por categoria" rows={pareto?.pareto.category ?? []} />
-                    <ParetoColumn title="Por solicitante" rows={pareto?.pareto.requester ?? []} />
-                    <ParetoColumn title="Por grupo tecnico" rows={pareto?.pareto.groupTech ?? []} />
+                    <ParetoColumn title="Padroes no titulo" rows={pareto?.pareto.titlePattern ?? []} />
+                    <ParetoColumn title="Solicitantes" rows={pareto?.pareto.requester ?? []} />
+                    <ParetoColumn title="Status" rows={pareto?.pareto.status ?? []} />
+                    <ParetoColumn title="Prioridade" rows={pareto?.pareto.priority ?? []} />
                 </div>
             </div>
 

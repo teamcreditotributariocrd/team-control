@@ -44,11 +44,16 @@ function normText(value: string) {
         .trim();
 }
 
-function subjectKey(row: GlpiIncident) {
-    const text = normText(`${row.category ?? ""} ${row.title ?? ""}`);
-    const stop = new Set(["solicitacao", "chamado", "erro", "problema", "favor", "verificar", "ajuste", "acesso"]);
+function titlePatternKey(row: GlpiIncident) {
+    const text = normText(row.title ?? "");
+    const stop = new Set([
+        "solicitacao", "chamado", "erro", "problema", "favor", "verificar", "ajuste", "acesso",
+        "solicito", "realizar", "realizacao", "sistema", "usuario", "demanda", "analise",
+        "incidente", "duvida", "informacao", "incluir", "alterar", "corrigir", "validar",
+        "acessar", "abrir", "gerar", "emitir", "falha",
+    ]);
     const words = text.split(" ").filter((w) => w.length >= 4 && !stop.has(w));
-    return words.slice(0, 4).join(" ") || "Nao classificado";
+    return words.slice(0, 5).join(" ") || text.slice(0, 60) || "Nao classificado";
 }
 
 function filterRows(rows: GlpiIncident[], q: GlpiIncidentsQuery) {
@@ -76,11 +81,11 @@ function filterRows(rows: GlpiIncident[], q: GlpiIncidentsQuery) {
     });
 }
 
-function buildPareto(rows: GlpiIncident[], groupBy: "subject" | "category" | "requester" | "groupTech", limit = 10) {
+function buildPareto(rows: GlpiIncident[], groupBy: "titlePattern" | "requester" | "status" | "priority", limit = 10) {
     const map = new Map<string, { label: string; count: number; sampleIds: number[] }>();
     for (const row of rows) {
         const label =
-            groupBy === "subject" ? subjectKey(row) :
+            groupBy === "titlePattern" ? titlePatternKey(row) :
                 String((row as any)[groupBy] ?? "").trim() || "Nao classificado";
         const current = map.get(label) ?? { label, count: 0, sampleIds: [] };
         current.count += 1;
@@ -152,14 +157,33 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
         },
         analytics(q: GlpiIncidentsQuery) {
             const rows = filterRows(cache.rows, q);
+            const statusCounts = rows.reduce<Record<string, number>>((acc, row) => {
+                const key = String(row.status ?? "Nao classificado");
+                acc[key] = (acc[key] ?? 0) + 1;
+                return acc;
+            }, {});
+            const openRows = rows.filter((row) => {
+                const s = String(row.status ?? "").toUpperCase();
+                return s !== "SOLVED" && s !== "CLOSED";
+            });
+            const topTitlePattern = buildPareto(rows, "titlePattern", 1)[0] ?? null;
+            const topRequester = buildPareto(rows, "requester", 1)[0] ?? null;
+            const insights = [
+                topTitlePattern ? `Padrao mais recorrente nos titulos: "${topTitlePattern.label}" (${topTitlePattern.count} chamados).` : null,
+                topRequester ? `Solicitante com maior volume no filtro: ${topRequester.label} (${topRequester.count} chamados).` : null,
+                `Chamados em aberto no filtro: ${openRows.length}.`,
+                rows.length ? `Fechados/resolvidos representam ${Math.round((((statusCounts.CLOSED ?? 0) + (statusCounts.SOLVED ?? 0)) / rows.length) * 100)}% do filtro.` : null,
+            ].filter(Boolean);
+
             return {
                 total: rows.length,
                 cache: this.getMeta(),
+                insights,
                 pareto: {
-                    subject: buildPareto(rows, "subject", 10),
-                    category: buildPareto(rows, "category", 10),
+                    titlePattern: buildPareto(rows, "titlePattern", 10),
                     requester: buildPareto(rows, "requester", 10),
-                    groupTech: buildPareto(rows, "groupTech", 10),
+                    status: buildPareto(rows, "status", 10),
+                    priority: buildPareto(rows, "priority", 10),
                 },
             };
         },
