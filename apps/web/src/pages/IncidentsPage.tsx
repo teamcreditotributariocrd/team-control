@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Info } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 
 type IncidentRow = {
@@ -134,6 +135,28 @@ function Badge({ label, color }: { label: string; color: string }) {
     return (
         <span className="pill" style={{ borderColor: `${color}55`, background: `${color}18`, color }}>
             {label}
+        </span>
+    );
+}
+
+function InfoHint({ text }: { text: string }) {
+    return (
+        <span
+            title={text}
+            aria-label={text}
+            style={{
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 20,
+                height: 20,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,.16)",
+                color: "#A8B0BE",
+                flex: "0 0 auto",
+            }}
+        >
+            <Info size={13} />
         </span>
     );
 }
@@ -494,16 +517,32 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 <div className="grid4" style={{ marginBottom: 14 }}>
                     {(pareto?.insights?.length ? pareto.insights : ["Sincronize o GLPI para gerar uma leitura operacional."]).slice(0, 4).map((text, idx) => (
                         <div className="card" key={`incident-insight-${idx}`} style={{ padding: 12 }}>
-                            <div className="muted small">Insight {idx + 1}</div>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+                                <div className="muted small">Insight {idx + 1}</div>
+                                <InfoHint text="Insight calculado a partir dos incidentes do cache local, considerando os filtros atuais de periodo, status e busca." />
+                            </div>
                             <div className="strong" style={{ marginTop: 6 }}>{text}</div>
                         </div>
                     ))}
                 </div>
 
                 <div className="grid2">
-                    <ParetoColumn title="Temas recorrentes" rows={pareto?.pareto.theme ?? []} onSelect={openTheme} />
-                    <ParetoColumn title="Sintomas recorrentes" rows={pareto?.pareto.symptom ?? []} />
-                    <ParetoColumn title="Solicitantes" rows={pareto?.pareto.requester ?? []} />
+                    <ParetoColumn
+                        title="Temas recorrentes"
+                        rows={pareto?.pareto.theme ?? []}
+                        onSelect={openTheme}
+                        info="Tema classificado por regras deterministicas sobre titulo e descricao. Procura termos de dominio como parcelamento, acesso/permissao, BI/relatorio, ALIM, ACT, omissos, assinatura e integracao."
+                    />
+                    <ParetoColumn
+                        title="Sintomas recorrentes"
+                        rows={pareto?.pareto.symptom ?? []}
+                        info="Sintoma classificado por palavras no titulo e descricao: acesso/permissao, divergencia de dados ou valores, erro funcional, performance/timeout e solicitacao de ajuste."
+                    />
+                    <ParetoColumn
+                        title="Solicitantes"
+                        rows={pareto?.pareto.requester ?? []}
+                        info="Agrupamento direto pelo campo solicitante retornado pelo GLPI apos a sincronizacao do cache. Nao usa IA nem inferencia."
+                    />
                 </div>
 
                 {themeLoading && <div className="muted small" style={{ marginTop: 12 }}>Carregando detalhe do tema...</div>}
@@ -679,10 +718,23 @@ function Kpi({ label, value }: { label: string; value: number }) {
     );
 }
 
-function ParetoColumn({ title, rows, onSelect }: { title: string; rows: ParetoRow[]; onSelect?: (label: string) => void }) {
+function ParetoColumn({
+    title,
+    rows,
+    onSelect,
+    info,
+}: {
+    title: string;
+    rows: ParetoRow[];
+    onSelect?: (label: string) => void;
+    info?: string;
+}) {
     return (
         <div className="card" style={{ padding: 12 }}>
-            <div className="cardTitle">{title}</div>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center", marginBottom: 10 }}>
+                <div className="cardTitle" style={{ marginBottom: 0 }}>{title}</div>
+                {info ? <InfoHint text={info} /> : null}
+            </div>
             {!rows.length ? (
                 <div className="muted small">Sem dados para os filtros atuais.</div>
             ) : (
@@ -695,7 +747,10 @@ function ParetoColumn({ title, rows, onSelect }: { title: string; rows: ParetoRo
                             title={onSelect ? "Clique para ver os incidentes deste tema" : undefined}
                         >
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-                                <div className="strong" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</div>
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
+                                    <div className="strong" style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.label}</div>
+                                    {info ? <InfoHint text={`${info} Este item representa ${row.count} incidente(s), ${row.pct}% do filtro atual; acumulado Pareto: ${row.cumulativePct}%. Exemplos: ${row.sampleIds.join(", ")}.`} /> : null}
+                                </div>
                                 <div className="mono small">{row.count} | {row.pct}%</div>
                             </div>
                             <div style={{ height: 8, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden", marginTop: 6 }}>
