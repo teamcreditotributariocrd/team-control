@@ -102,7 +102,8 @@ export default function IncidentsPage({ session }: { session: Session }) {
     }, [rows]);
 
     const recurringThemes = useMemo(() => buildRecurringThemes(rows), [rows]);
-    const openThemes = useMemo(() => recurringThemes.filter((item) => item.openCount > 0).sort((a, b) => b.openCount - a.openCount || b.count - a.count), [recurringThemes]);
+    const classifiedThemes = useMemo(() => recurringThemes.filter((item) => item.label !== "Outros assuntos"), [recurringThemes]);
+    const unclassifiedTheme = recurringThemes.find((item) => item.label === "Outros assuntos") ?? null;
 
     const filteredRows = useMemo(() => {
         let result = rows;
@@ -161,58 +162,32 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 </div>
             </section>
 
-            <section className="grid2" style={{ marginTop: 14 }}>
-                <div className="card" style={{ padding: 14 }}>
-                    <div className="cardTitle" style={{ marginBottom: 4 }}>Assuntos recorrentes</div>
-                    <div className="muted small" style={{ marginBottom: 12 }}>
-                        Leitura deterministica de titulo e descricao para identificar onde os incidentes se concentram.
+            <section className="card" style={{ marginTop: 14, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div>
+                        <div className="cardTitle" style={{ marginBottom: 4 }}>Assuntos recorrentes</div>
+                        <div className="muted small">
+                            Classificacao deterministica por palavras do titulo e da descricao. Clique em um assunto para revisar os incidentes que entraram nele.
+                        </div>
                     </div>
-                    <div style={{ display: "grid", gap: 8 }}>
-                        {recurringThemes.slice(0, 5).map((item) => (
-                            <ThemeRow
-                                key={item.label}
-                                active={theme === item.label}
-                                item={item}
-                                onClick={() => setTheme((current) => current === item.label ? null : item.label)}
-                            />
-                        ))}
-                        {!recurringThemes.length ? <div className="muted small">Sem temas recorrentes suficientes no cache.</div> : null}
-                    </div>
+                    {unclassifiedTheme ? <span className="pill">{unclassifiedTheme.count} sem tema especifico</span> : null}
                 </div>
-
-                <div className="card" style={{ padding: 14 }}>
-                    <div className="cardTitle" style={{ marginBottom: 4 }}>Foco nos abertos</div>
-                    <div className="muted small" style={{ marginBottom: 12 }}>
-                        Temas que ainda aparecem em incidentes nao fechados.
-                    </div>
-                    {openThemes[0] ? (
-                        <>
-                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
-                                <div>
-                                    <div className="muted small">Maior concentracao aberta</div>
-                                    <div className="h2" style={{ marginTop: 4 }}>{openThemes[0].label}</div>
-                                </div>
-                                <button className="btn ghost small" onClick={() => setTheme(openThemes[0].label)}>
-                                    Ver na lista
-                                </button>
-                            </div>
-                            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                {openThemes.slice(0, 3).map((item) => (
-                                    <span className="pill" key={`open-${item.label}`}>{item.openCount} aberto(s) em {item.label}</span>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
-                                {openThemes[0].sampleTitles.slice(0, 3).map((title) => (
-                                    <div key={title} className="small" style={{ borderLeft: "2px solid rgba(110,231,255,.34)", paddingLeft: 8 }}>
-                                        {title}
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="muted small">Nao ha temas abertos classificados no cache atual.</div>
-                    )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginTop: 12 }}>
+                    {classifiedThemes.slice(0, 6).map((item) => (
+                        <ThemeRow
+                            key={item.label}
+                            active={theme === item.label}
+                            item={item}
+                            onClick={() => setTheme((current) => current === item.label ? null : item.label)}
+                        />
+                    ))}
+                    {!classifiedThemes.length ? <div className="muted small">Sem temas recorrentes classificados no cache.</div> : null}
                 </div>
+                {unclassifiedTheme ? (
+                    <div className="muted small" style={{ marginTop: 10 }}>
+                        Os incidentes sem tema especifico ajudam a ajustar as regras quando surgirem padroes novos.
+                    </div>
+                ) : null}
             </section>
 
             <section className="card" style={{ marginTop: 14 }}>
@@ -449,9 +424,16 @@ function ThemeRow({
             <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden", marginTop: 8 }}>
                 <div style={{ width: `${Math.max(item.pct, 3)}%`, height: "100%", background: item.openCount ? "#FB923C" : "#6EE7C4" }} />
             </div>
-            <div className="muted small" style={{ marginTop: 6 }}>
-                {item.openCount} aberto(s){item.sampleTitles[0] ? ` / Ex.: ${item.sampleTitles[0]}` : ""}
-            </div>
+            <div className="muted small" style={{ marginTop: 6 }}>{item.openCount} aberto(s)</div>
+            {item.sampleTitles.length ? (
+                <div className="small" style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                    {item.sampleTitles.slice(0, 2).map((title) => (
+                        <span key={`${item.label}-${title}`} style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            Ex.: {title}
+                        </span>
+                    ))}
+                </div>
+            ) : null}
         </button>
     );
 }
