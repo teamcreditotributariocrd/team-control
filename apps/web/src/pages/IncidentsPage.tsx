@@ -152,7 +152,6 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Tipo</th>
                                 <th>Status</th>
                                 <th>Atribuido para</th>
                                 <th>Titulo</th>
@@ -166,7 +165,6 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             {filteredRows.map((row) => (
                                 <tr key={String(row.id)}>
                                     <td className="mono">{row.id}</td>
-                                    <td><Type value={row.type} /></td>
                                     <td><Status value={row.status} /></td>
                                     <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
                                     <td style={{ minWidth: 300 }}>{row.title}</td>
@@ -178,7 +176,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             ))}
                             {!filteredRows.length ? (
                                 <tr>
-                                    <td colSpan={9} className="muted small">Nenhum incidente neste filtro.</td>
+                                    <td colSpan={8} className="muted small">Nenhum incidente neste filtro.</td>
                                 </tr>
                             ) : null}
                         </tbody>
@@ -286,23 +284,6 @@ function statusLabel(value?: string) {
 
 function Status({ value }: { value?: string }) {
     return <span className="pill">{statusLabel(value)}</span>;
-}
-
-function Type({ value }: { value?: string | null }) {
-    const label = normType(value).includes("INCIDENT") ? "Incidente" : value || "-";
-    return (
-        <span
-            className="pill"
-            style={{
-                borderColor: "rgba(248,113,113,.34)",
-                background: "rgba(248,113,113,.14)",
-                color: "#FCA5A5",
-                fontWeight: 800,
-            }}
-        >
-            {label}
-        </span>
-    );
 }
 
 function Kpi({
