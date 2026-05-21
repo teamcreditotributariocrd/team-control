@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Archive, Clock3, Info, UsersRound } from "lucide-react";
 import { apiGet, type Session } from "../lib/api";
+import type { Collaborator } from "../types";
 
 type IncidentRow = {
     id: number | string;
@@ -46,6 +47,7 @@ const filterLabels: Record<FilterKey, string> = {
 
 export default function IncidentsPage({ session }: { session: Session }) {
     const [rows, setRows] = useState<IncidentRow[]>([]);
+    const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
     const [filter, setFilter] = useState<FilterKey>("ALL");
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
@@ -58,9 +60,13 @@ export default function IncidentsPage({ session }: { session: Session }) {
             setErr("");
 
             try {
-                const incidents = await apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session);
+                const [incidents, team] = await Promise.all([
+                    apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session),
+                    apiGet<Collaborator[]>("/api/collaborators", session),
+                ]);
                 if (!active) return;
                 setRows(Array.isArray(incidents.rows) ? incidents.rows.filter(isIncident) : []);
+                setCollaborators(Array.isArray(team) ? team : []);
             } catch (e: any) {
                 if (active) setErr(String(e?.message ?? e));
             } finally {
@@ -75,6 +81,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
     }, [session]);
 
     const kpis = useMemo(() => summarizeKpis(rows), [rows]);
+    const assigneeNames = useMemo(() => firstNameByLogin(collaborators), [collaborators]);
 
     const attention = useMemo(() => {
         const attentionNew = rows.filter(isOldNew);
@@ -160,7 +167,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                     <td className="mono">{row.id}</td>
                                     <td><Type value={row.type} /></td>
                                     <td><Status value={row.status} /></td>
-                                    <td className="mono">{row.techAssignee ?? "-"}</td>
+                                    <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
                                     <td style={{ minWidth: 300 }}>{row.title}</td>
                                     <td className="mono">{row.requester ?? "-"}</td>
                                     <td className="mono">{formatDate(row.openedAt)}</td>
@@ -202,6 +209,28 @@ function summarizeKpis(rows: IncidentRow[]): IncidentKpis {
         if (status === "CLOSED") acc.CLOSED += 1;
         return acc;
     }, { ...emptyKpis });
+}
+
+function loginKey(value?: string | null) {
+    const raw = String(value ?? "").trim().toLowerCase();
+    if (!raw) return "";
+    const withoutDomain = raw.split("\\").pop() ?? raw;
+    return (withoutDomain.split("@")[0] ?? withoutDomain).trim();
+}
+
+function firstNameByLogin(collaborators: Collaborator[]) {
+    const names = new Map<string, string>();
+    for (const collaborator of collaborators) {
+        const key = loginKey(collaborator.uniqueName);
+        const firstName = String(collaborator.displayName ?? "").trim().split(/\s+/)[0];
+        if (key && firstName) names.set(key, firstName);
+    }
+    return names;
+}
+
+function firstAssigneeName(value: string | null | undefined, names: Map<string, string>) {
+    if (!value) return "-";
+    return names.get(loginKey(value)) ?? value;
 }
 
 function dateValue(value?: string | null) {
