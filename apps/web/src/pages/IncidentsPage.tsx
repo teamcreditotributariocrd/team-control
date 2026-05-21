@@ -5,6 +5,7 @@ import { apiGet, type Session } from "../lib/api";
 type IncidentRow = {
     id: number | string;
     title: string;
+    type?: string | null;
     status: string;
     openedAt?: string | null;
     updatedAt?: string | null;
@@ -17,10 +18,6 @@ type IncidentKpis = {
     NEW: number;
     ASSIGNED: number;
     CLOSED: number;
-};
-
-type IncidentAnalyticsResponse = {
-    kpis?: IncidentKpis;
 };
 
 type IncidentsResponse = {
@@ -37,17 +34,16 @@ const emptyKpis: IncidentKpis = {
 };
 
 const filterLabels: Record<FilterKey, string> = {
-    ALL: "Todos os chamados",
-    NEW: "Chamados novos",
-    ASSIGNED: "Chamados atribuidos",
-    CLOSED: "Chamados fechados",
+    ALL: "Todos os incidentes",
+    NEW: "Incidentes novos",
+    ASSIGNED: "Incidentes atribuidos",
+    CLOSED: "Incidentes fechados",
     ATTENTION_NEW: "Novos ha mais de 2 dias",
     ATTENTION_ASSIGNED: "Atribuidos sem atualizacao ha mais de 5 dias",
     ATTENTION_OPEN: "Abertos ha mais de 10 dias",
 };
 
 export default function IncidentsPage({ session }: { session: Session }) {
-    const [kpis, setKpis] = useState<IncidentKpis>(emptyKpis);
     const [rows, setRows] = useState<IncidentRow[]>([]);
     const [filter, setFilter] = useState<FilterKey>("ALL");
     const [loading, setLoading] = useState(true);
@@ -61,13 +57,9 @@ export default function IncidentsPage({ session }: { session: Session }) {
             setErr("");
 
             try {
-                const [analytics, incidents] = await Promise.all([
-                    apiGet<IncidentAnalyticsResponse>("/api/incidents/analytics/pareto?status=ALL", session),
-                    apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session),
-                ]);
+                const incidents = await apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session);
                 if (!active) return;
-                setKpis(analytics.kpis ?? emptyKpis);
-                setRows(Array.isArray(incidents.rows) ? incidents.rows : []);
+                setRows(Array.isArray(incidents.rows) ? incidents.rows.filter(isIncident) : []);
             } catch (e: any) {
                 if (active) setErr(String(e?.message ?? e));
             } finally {
@@ -80,6 +72,8 @@ export default function IncidentsPage({ session }: { session: Session }) {
             active = false;
         };
     }, [session]);
+
+    const kpis = useMemo(() => summarizeKpis(rows), [rows]);
 
     const attention = useMemo(() => {
         const attentionNew = rows.filter(isOldNew);
@@ -108,10 +102,10 @@ export default function IncidentsPage({ session }: { session: Session }) {
             {err ? <div className="alert">{err}</div> : null}
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                <Kpi active={filter === "ALL"} label="Chamados no total" value={kpis.total} tone="#BDBDBD" icon={<Info size={20} />} onClick={() => setFilter("ALL")} />
-                <Kpi active={filter === "NEW"} label="Chamados novos" value={kpis.NEW} tone="#12E052" icon={<Info size={20} />} onClick={() => setFilter("NEW")} />
-                <Kpi active={filter === "ASSIGNED"} label="Chamados atribuidos" value={kpis.ASSIGNED} tone="#E89432" icon={<UsersRound size={20} />} onClick={() => setFilter("ASSIGNED")} />
-                <Kpi active={filter === "CLOSED"} label="Chamados fechados" value={kpis.CLOSED} tone="#4A4A4A" textColor="#fff" icon={<Archive size={20} />} onClick={() => setFilter("CLOSED")} />
+                <Kpi active={filter === "ALL"} label="Incidentes no total" value={kpis.total} tone="#BDBDBD" icon={<Info size={20} />} onClick={() => setFilter("ALL")} />
+                <Kpi active={filter === "NEW"} label="Incidentes novos" value={kpis.NEW} tone="#12E052" icon={<Info size={20} />} onClick={() => setFilter("NEW")} />
+                <Kpi active={filter === "ASSIGNED"} label="Incidentes atribuidos" value={kpis.ASSIGNED} tone="#E89432" icon={<UsersRound size={20} />} onClick={() => setFilter("ASSIGNED")} />
+                <Kpi active={filter === "CLOSED"} label="Incidentes fechados" value={kpis.CLOSED} tone="#4A4A4A" textColor="#fff" icon={<Archive size={20} />} onClick={() => setFilter("CLOSED")} />
             </div>
 
             <section className="card" style={{ marginTop: 14, padding: 14 }}>
@@ -141,7 +135,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
             <section className="card" style={{ marginTop: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
                     <div className="cardTitle" style={{ marginBottom: 0 }}>{filterLabels[filter]}</div>
-                    <div className="muted small">{filteredRows.length} chamado(s)</div>
+                    <div className="muted small">{filteredRows.length} incidente(s)</div>
                 </div>
 
                 <div className="tableWrap" style={{ marginTop: 12 }}>
@@ -149,6 +143,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <thead>
                             <tr>
                                 <th>ID</th>
+                                <th>Tipo</th>
                                 <th>Status</th>
                                 <th>Titulo</th>
                                 <th>Solicitante</th>
@@ -161,6 +156,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             {filteredRows.map((row) => (
                                 <tr key={String(row.id)}>
                                     <td className="mono">{row.id}</td>
+                                    <td><Type value={row.type} /></td>
                                     <td><Status value={row.status} /></td>
                                     <td style={{ minWidth: 300 }}>{row.title}</td>
                                     <td className="mono">{row.requester ?? "-"}</td>
@@ -171,7 +167,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             ))}
                             {!filteredRows.length ? (
                                 <tr>
-                                    <td colSpan={7} className="muted small">Nenhum chamado neste filtro.</td>
+                                    <td colSpan={8} className="muted small">Nenhum incidente neste filtro.</td>
                                 </tr>
                             ) : null}
                         </tbody>
@@ -184,6 +180,25 @@ export default function IncidentsPage({ session }: { session: Session }) {
 
 function normStatus(value?: string) {
     return String(value ?? "").toUpperCase();
+}
+
+function normType(value?: string | null) {
+    return String(value ?? "").toUpperCase();
+}
+
+function isIncident(row: IncidentRow) {
+    return normType(row.type).includes("INCIDENT");
+}
+
+function summarizeKpis(rows: IncidentRow[]): IncidentKpis {
+    return rows.reduce<IncidentKpis>((acc, row) => {
+        const status = normStatus(row.status);
+        acc.total += 1;
+        if (status === "NEW") acc.NEW += 1;
+        if (status === "ASSIGNED") acc.ASSIGNED += 1;
+        if (status === "CLOSED") acc.CLOSED += 1;
+        return acc;
+    }, { ...emptyKpis });
 }
 
 function dateValue(value?: string | null) {
@@ -238,6 +253,23 @@ function statusLabel(value?: string) {
 
 function Status({ value }: { value?: string }) {
     return <span className="pill">{statusLabel(value)}</span>;
+}
+
+function Type({ value }: { value?: string | null }) {
+    const label = normType(value).includes("INCIDENT") ? "Incidente" : value || "-";
+    return (
+        <span
+            className="pill"
+            style={{
+                borderColor: "rgba(248,113,113,.34)",
+                background: "rgba(248,113,113,.14)",
+                color: "#FCA5A5",
+                fontWeight: 800,
+            }}
+        >
+            {label}
+        </span>
+    );
 }
 
 function Kpi({
