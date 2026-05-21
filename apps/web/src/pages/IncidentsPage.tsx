@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, BellRing, Info, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
-import { apiGet, type Session } from "../lib/api";
+import { Archive, BellRing, Database, Info, RefreshCw, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
+import { apiGet, apiSend, type Session } from "../lib/api";
 import type { Collaborator } from "../types";
 
 type IncidentRow = {
@@ -26,6 +26,12 @@ type IncidentKpis = {
 
 type IncidentsResponse = {
     rows?: IncidentRow[];
+    cache?: IncidentCacheMeta;
+};
+
+type IncidentCacheMeta = {
+    updatedAt: string | null;
+    totalCached: number;
 };
 
 type RecurringTheme = {
@@ -60,36 +66,52 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
     const [filter, setFilter] = useState<FilterKey>("ALL");
     const [theme, setTheme] = useState<string | null>(null);
+    const [cache, setCache] = useState<IncidentCacheMeta | null>(null);
     const [loading, setLoading] = useState(true);
+    const [syncing, setSyncing] = useState(false);
     const [err, setErr] = useState("");
+
+    async function load(active = () => true) {
+        setLoading(true);
+        setErr("");
+
+        try {
+            const [incidents, team] = await Promise.all([
+                apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session),
+                apiGet<Collaborator[]>("/api/collaborators", session),
+            ]);
+            if (!active()) return;
+            setRows(Array.isArray(incidents.rows) ? incidents.rows.filter(isIncident) : []);
+            setCollaborators(Array.isArray(team) ? team : []);
+            setCache(incidents.cache ?? null);
+        } catch (e: any) {
+            if (active()) setErr(String(e?.message ?? e));
+        } finally {
+            if (active()) setLoading(false);
+        }
+    }
 
     useEffect(() => {
         let active = true;
 
-        async function load() {
-            setLoading(true);
-            setErr("");
-
-            try {
-                const [incidents, team] = await Promise.all([
-                    apiGet<IncidentsResponse>("/api/incidents?status=ALL&limit=5000", session),
-                    apiGet<Collaborator[]>("/api/collaborators", session),
-                ]);
-                if (!active) return;
-                setRows(Array.isArray(incidents.rows) ? incidents.rows.filter(isIncident) : []);
-                setCollaborators(Array.isArray(team) ? team : []);
-            } catch (e: any) {
-                if (active) setErr(String(e?.message ?? e));
-            } finally {
-                if (active) setLoading(false);
-            }
-        }
-
-        load();
+        load(() => active);
         return () => {
             active = false;
         };
     }, [session]);
+
+    async function syncCache() {
+        setSyncing(true);
+        setErr("");
+        try {
+            await apiSend("/api/incidents/sync?pageSize=200&maxPages=500", "POST", {}, session);
+            await load();
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+        } finally {
+            setSyncing(false);
+        }
+    }
 
     const kpis = useMemo(() => summarizeKpis(rows), [rows]);
     const assigneeNames = useMemo(() => firstNameByLogin(collaborators), [collaborators]);
@@ -120,6 +142,22 @@ export default function IncidentsPage({ session }: { session: Session }) {
         <div>
             <div className="pageHeader">
                 <div className="h1">Incidentes</div>
+                <div className="pageHeaderRight" style={{ gap: 8, flexWrap: "wrap" }}>
+                    <span className="pill small" title={cache?.updatedAt ? `Atualizado em ${formatDate(cache.updatedAt)}` : "Cache GLPI ainda nao sincronizado"}>
+                        <Database size={13} />
+                        {cache?.totalCached ? `${cache.totalCached} no cache` : "Cache GLPI vazio"}
+                    </span>
+                    <button className="btn ghost small" onClick={() => load()} disabled={loading || syncing}>
+                        <RefreshCw size={14} />
+                        Recarregar
+                    </button>
+                    {session.role === "admin" ? (
+                        <button className="btn ghost small" onClick={syncCache} disabled={loading || syncing}>
+                            <Database size={14} />
+                            {syncing ? "Sincronizando..." : "Atualizar cache GLPI"}
+                        </button>
+                    ) : null}
+                </div>
             </div>
 
             {loading ? <div className="muted">Carregando incidentes...</div> : null}
