@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { getUser, assertAdmin } from "../infra/auth.js";
 import { createGlpiClient } from "../services/glpiClient.js";
+import { createTfsBugFromIncident } from "../services/tfsBugCreator.js";
 
 function q(req: any, key: string) {
     return (req.query as any)?.[key];
@@ -130,6 +131,30 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
         const detail = deps.incidentsCacheStore.themeDetail({ status, search, from, to }, theme);
         if (!detail) return reply.code(404).send({ error: "THEME_NOT_FOUND" });
         return reply.send(detail);
+    });
+
+    app.post("/api/incidents/:id/bug", async (req, reply) => {
+        const user = getUser(req);
+        try {
+            assertReader(user);
+        } catch (e: any) {
+            return sendAuthError(reply, e);
+        }
+
+        const id = Number((req.params as any)?.id);
+        if (!Number.isFinite(id) || id <= 0) return reply.code(400).send({ error: "INVALID_ID" });
+
+        const incident = deps.incidentsCacheStore.getById(id);
+        if (!incident) return reply.code(404).send({ error: "INCIDENT_NOT_FOUND" });
+        if (String(incident.type ?? "").toUpperCase() !== "INCIDENT") {
+            return reply.code(400).send({ error: "NOT_AN_INCIDENT" });
+        }
+
+        try {
+            return reply.send(await createTfsBugFromIncident(incident));
+        } catch (e: any) {
+            return reply.code(502).send({ error: "TFS_BUG_CREATE_ERROR", detail: String(e?.response?.data?.message ?? e?.message ?? e) });
+        }
     });
 
     app.get("/api/incidents/:id", async (req, reply) => {

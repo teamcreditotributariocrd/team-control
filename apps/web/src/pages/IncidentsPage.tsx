@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, BellRing, Database, Info, RefreshCw, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
+import { Archive, BellRing, Bug, Database, Info, RefreshCw, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 import type { Collaborator } from "../types";
 
@@ -27,6 +27,20 @@ type IncidentKpis = {
 type IncidentsResponse = {
     rows?: IncidentRow[];
     cache?: IncidentCacheMeta;
+};
+
+type CreatedBug = {
+    id: number;
+    title: string;
+    areaPath: string;
+    iterationPath: string;
+    url: string;
+};
+
+type BugCreationState = {
+    creating?: boolean;
+    created?: CreatedBug;
+    error?: string;
 };
 
 type IncidentCacheMeta = {
@@ -69,6 +83,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [cache, setCache] = useState<IncidentCacheMeta | null>(null);
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
+    const [bugs, setBugs] = useState<Record<string, BugCreationState>>({});
     const [err, setErr] = useState("");
 
     async function load(active = () => true) {
@@ -110,6 +125,17 @@ export default function IncidentsPage({ session }: { session: Session }) {
             setErr(String(e?.message ?? e));
         } finally {
             setSyncing(false);
+        }
+    }
+
+    async function createBug(row: IncidentRow) {
+        const key = String(row.id);
+        setBugs((current) => ({ ...current, [key]: { creating: true } }));
+        try {
+            const created = await apiSend<CreatedBug>(`/api/incidents/${row.id}/bug`, "POST", {}, session);
+            setBugs((current) => ({ ...current, [key]: { created } }));
+        } catch (e: any) {
+            setBugs((current) => ({ ...current, [key]: { error: String(e?.message ?? e) } }));
         }
     }
 
@@ -251,24 +277,31 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                 <th>Abertura</th>
                                 <th>Ultima atualizacao</th>
                                 <th>GLPI</th>
+                                <th>Bug</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredRows.map((row) => (
-                                <tr key={String(row.id)}>
-                                    <td className="mono">{row.id}</td>
-                                    <td><Status value={row.status} /></td>
-                                    <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
-                                    <td style={{ minWidth: 300 }}>{row.title}</td>
-                                    <td>{row.requesterName ?? row.requester ?? "-"}</td>
-                                    <td className="mono">{formatDate(row.openedAt)}</td>
-                                    <td className="mono">{formatDate(row.updatedAt)}</td>
-                                    <td>{row.url ? <a className="link" href={row.url} target="_blank" rel="noreferrer">Abrir</a> : "-"}</td>
-                                </tr>
-                            ))}
+                            {filteredRows.map((row) => {
+                                const bug = bugs[String(row.id)];
+                                return (
+                                    <tr key={String(row.id)}>
+                                        <td className="mono">{row.id}</td>
+                                        <td><Status value={row.status} /></td>
+                                        <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
+                                        <td style={{ minWidth: 300 }}>{row.title}</td>
+                                        <td>{row.requesterName ?? row.requester ?? "-"}</td>
+                                        <td className="mono">{formatDate(row.openedAt)}</td>
+                                        <td className="mono">{formatDate(row.updatedAt)}</td>
+                                        <td>{row.url ? <a className="link" href={row.url} target="_blank" rel="noreferrer">Abrir</a> : "-"}</td>
+                                        <td style={{ minWidth: 120 }}>
+                                            <BugAction state={bug} onCreate={() => createBug(row)} />
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             {!filteredRows.length ? (
                                 <tr>
-                                    <td colSpan={8} className="muted small">Nenhum incidente neste filtro.</td>
+                                    <td colSpan={9} className="muted small">Nenhum incidente neste filtro.</td>
                                 </tr>
                             ) : null}
                         </tbody>
@@ -429,6 +462,44 @@ function statusLabel(value?: string) {
 
 function Status({ value }: { value?: string }) {
     return <span className="pill">{statusLabel(value)}</span>;
+}
+
+function BugAction({
+    state,
+    onCreate,
+}: {
+    state?: BugCreationState;
+    onCreate: () => void;
+}) {
+    if (state?.created) {
+        return (
+            <a
+                className="link small"
+                href={state.created.url}
+                target="_blank"
+                rel="noreferrer"
+                title={`${state.created.areaPath} / ${state.created.iterationPath}`}
+            >
+                Bug #{state.created.id}
+            </a>
+        );
+    }
+
+    return (
+        <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
+            <button
+                type="button"
+                className="btn danger small"
+                onClick={onCreate}
+                disabled={state?.creating}
+                title="Criar Bug no time de suporte com a descricao do chamado"
+            >
+                <Bug size={14} />
+                {state?.creating ? "Criando..." : "Criar bug"}
+            </button>
+            {state?.error ? <span className="small" title={state.error} style={{ color: "#FCA5A5" }}>Falhou</span> : null}
+        </div>
+    );
 }
 
 function ThemeRow({

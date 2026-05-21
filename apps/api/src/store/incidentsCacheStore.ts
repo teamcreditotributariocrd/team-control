@@ -268,6 +268,9 @@ export function createIncidentsCacheStore(dataDir = resolveApiDataDir()) {
                 cache: this.getMeta(),
             };
         },
+        getById(id: number) {
+            return cache.rows.find((row) => row.id === id) ?? null;
+        },
         analytics(q: GlpiIncidentsQuery) {
             const rows = filterRows(cache.rows, q);
             const kpis = statusSummary(rows);
