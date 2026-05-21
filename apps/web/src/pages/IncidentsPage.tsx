@@ -10,6 +10,7 @@ type IncidentRow = {
     openedAt?: string | null;
     updatedAt?: string | null;
     requester?: string | null;
+    techAssignee?: string | null;
     url?: string | null;
 };
 
@@ -145,6 +146,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                 <th>ID</th>
                                 <th>Tipo</th>
                                 <th>Status</th>
+                                <th>Atribuido para</th>
                                 <th>Titulo</th>
                                 <th>Solicitante</th>
                                 <th>Abertura</th>
@@ -158,6 +160,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                     <td className="mono">{row.id}</td>
                                     <td><Type value={row.type} /></td>
                                     <td><Status value={row.status} /></td>
+                                    <td className="mono">{row.techAssignee ?? "-"}</td>
                                     <td style={{ minWidth: 300 }}>{row.title}</td>
                                     <td className="mono">{row.requester ?? "-"}</td>
                                     <td className="mono">{formatDate(row.openedAt)}</td>
@@ -167,7 +170,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             ))}
                             {!filteredRows.length ? (
                                 <tr>
-                                    <td colSpan={8} className="muted small">Nenhum incidente neste filtro.</td>
+                                    <td colSpan={9} className="muted small">Nenhum incidente neste filtro.</td>
                                 </tr>
                             ) : null}
                         </tbody>
