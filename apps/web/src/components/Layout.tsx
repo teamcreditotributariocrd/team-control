@@ -27,8 +27,8 @@ export default function Layout({
         { to: "/settings", label: "Configuracoes", icon: Settings, show: session.role === "admin" },
         { to: "/catalog", label: "Catalogo", icon: BookOpen, show: true },
         { to: "/meetings", label: "Reunioes", icon: CalendarClock, show: session.role === "admin" },
-        { to: "/incidents", label: "Incidentes", icon: Ticket, show: session.role === "admin" },
-        { to: "/requisitions", label: "Requisicoes", icon: ClipboardList, show: session.role === "admin" },
+        { to: "/incidents", label: "Incidentes", icon: Ticket, show: true },
+        { to: "/requisitions", label: "Requisicoes", icon: ClipboardList, show: true },
     ].filter((n) => n.show);
 
     return (

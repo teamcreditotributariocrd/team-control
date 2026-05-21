@@ -672,11 +672,11 @@ export default function App() {
           <Route path="/meetings" element={session.role === "admin" ? <MeetingsPage session={session} /> : <Navigate to="/me" replace />} />
           <Route
             path="/incidents"
-            element={session.role === "admin" ? <IncidentsPage session={session} /> : <Navigate to="/me" replace />}
+            element={<IncidentsPage session={session} />}
           />
           <Route
             path="/requisitions"
-            element={session.role === "admin" ? <RequisitionsPage session={session} /> : <Navigate to="/me" replace />}
+            element={<RequisitionsPage session={session} />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

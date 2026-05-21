@@ -35,13 +35,17 @@ function sendGlpiError(reply: any, e: any) {
     return reply.code(502).send({ error: "GLPI_ERROR", detail: message });
 }
 
+function assertReader(user: ReturnType<typeof getUser>) {
+    if (!user.uniqueName) throw new Error("UNAUTHORIZED");
+}
+
 export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typeof import("../serverDeps.js").createDeps>) {
     const glpi = createGlpiClient();
 
     app.get("/api/incidents", async (req, reply) => {
         const user = getUser(req);
         try {
-            assertAdmin(user);
+            assertReader(user);
         } catch (e: any) {
             return sendAuthError(reply, e);
         }
@@ -54,6 +58,14 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
         const pageSize = q(req, "pageSize") ? asInt(q(req, "pageSize"), 200) : 200;
         const maxPages = q(req, "maxPages") ? asInt(q(req, "maxPages"), 20) : 20;
         const live = String(q(req, "live") ?? "").toLowerCase() === "true";
+
+        if (live) {
+            try {
+                assertAdmin(user);
+            } catch (e: any) {
+                return sendAuthError(reply, e);
+            }
+        }
 
         try {
             const out = live
@@ -89,7 +101,7 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
     app.get("/api/incidents/analytics/pareto", async (req, reply) => {
         const user = getUser(req);
         try {
-            assertAdmin(user);
+            assertReader(user);
         } catch (e: any) {
             return sendAuthError(reply, e);
         }
