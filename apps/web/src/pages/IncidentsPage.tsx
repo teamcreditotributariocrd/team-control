@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, Clock3, Info, UsersRound } from "lucide-react";
+import { Archive, BellRing, Info, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
 import { apiGet, type Session } from "../lib/api";
 import type { Collaborator } from "../types";
 
@@ -124,18 +124,24 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         active={filter === "ATTENTION_NEW"}
                         label="Novos ha mais de 2 dias"
                         value={attention.attentionNew.length}
+                        icon={<BellRing size={20} />}
+                        tone="#FACC15"
                         onClick={() => setFilter("ATTENTION_NEW")}
                     />
                     <Attention
                         active={filter === "ATTENTION_ASSIGNED"}
                         label="Atribuidos sem atualizacao ha mais de 5 dias"
                         value={attention.attentionAssigned.length}
+                        icon={<TimerReset size={20} />}
+                        tone="#FB923C"
                         onClick={() => setFilter("ATTENTION_ASSIGNED")}
                     />
                     <Attention
                         active={filter === "ATTENTION_OPEN"}
                         label="Abertos ha mais de 10 dias"
                         value={attention.attentionOpen.length}
+                        icon={<TriangleAlert size={20} />}
+                        tone="#F87171"
                         onClick={() => setFilter("ATTENTION_OPEN")}
                     />
                 </div>
@@ -338,11 +344,15 @@ function Attention({
     active,
     label,
     value,
+    icon,
+    tone,
     onClick,
 }: {
     active: boolean;
     label: string;
     value: number;
+    icon: React.ReactNode;
+    tone: string;
     onClick: () => void;
 }) {
     return (
@@ -360,12 +370,13 @@ function Attention({
                 alignItems: "center",
                 textAlign: "left",
                 cursor: "pointer",
-                borderColor: active ? "rgba(255,255,255,.72)" : "rgba(255,255,255,.10)",
-                boxShadow: active ? "0 0 0 2px rgba(255,255,255,.10)" : "none",
+                background: `linear-gradient(180deg, ${tone}24, rgba(13,23,48,.88))`,
+                borderColor: active ? `${tone}CC` : `${tone}55`,
+                boxShadow: active ? `0 0 0 2px ${tone}33` : "none",
             }}
         >
-            <span style={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 8, background: "rgba(242,195,52,.16)", color: "#F2C334" }}>
-                <Clock3 size={20} />
+            <span style={{ display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 8, background: `${tone}22`, color: tone }}>
+                {icon}
             </span>
             <span>
                 <span className="kpi" style={{ display: "block", marginTop: 0, fontSize: 24 }}>{value}</span>
