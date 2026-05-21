@@ -11,6 +11,7 @@ type IncidentRow = {
     openedAt?: string | null;
     updatedAt?: string | null;
     requester?: string | null;
+    requesterName?: string | null;
     techAssignee?: string | null;
     url?: string | null;
 };
@@ -169,7 +170,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                     <td><Status value={row.status} /></td>
                                     <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
                                     <td style={{ minWidth: 300 }}>{row.title}</td>
-                                    <td className="mono">{row.requester ?? "-"}</td>
+                                    <td>{row.requesterName ?? row.requester ?? "-"}</td>
                                     <td className="mono">{formatDate(row.openedAt)}</td>
                                     <td className="mono">{formatDate(row.updatedAt)}</td>
                                     <td>{row.url ? <a className="link" href={row.url} target="_blank" rel="noreferrer">Abrir</a> : "-"}</td>

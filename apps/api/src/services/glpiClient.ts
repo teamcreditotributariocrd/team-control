@@ -22,6 +22,7 @@ export type GlpiIncident = {
     groupTech: string | null;
     techAssignee: string | null;
     requester: string | null;
+    requesterName?: string | null;
     category: string | null;
     descriptionHtml: string | null;
     descriptionText: string | null;
@@ -166,6 +167,7 @@ export function createGlpiClient() {
     const frontBase = base.replace(/\/apirest\.php$/i, "");
 
     let cachedOpts: { at: number; opts: TicketSearchOptionsResponse } | null = null;
+    const cachedUserNames = new Map<number, Promise<string | null>>();
 
     async function initSession(): Promise<string> {
         try {
@@ -284,6 +286,42 @@ export function createGlpiClient() {
         return data;
     }
 
+    async function getUserById(sessionToken: string, userId: number) {
+        const { data } = await glpiFetchJson(`${base}/User/${userId}`, {
+            method: "GET",
+            headers: { "App-Token": appToken, "Session-Token": sessionToken },
+        });
+        return data;
+    }
+
+    function actorUserId(actor: any): number | null {
+        const direct = Number(actor?.users_id);
+        if (Number.isFinite(direct)) return direct;
+
+        const userLink = Array.isArray(actor?.links)
+            ? actor.links.find((link: any) => String(link?.rel ?? "").toLowerCase() === "user")
+            : null;
+        const match = String(userLink?.href ?? "").match(/\/User\/(\d+)(?:\D|$)/i);
+        const linked = Number(match?.[1]);
+        return Number.isFinite(linked) ? linked : null;
+    }
+
+    function userDisplayName(user: any): string | null {
+        const first = toText(user?.firstname);
+        const last = toText(user?.realname);
+        const full = [first, last].filter(Boolean).join(" ").trim();
+        return full || toText(user?.completename) || toText(user?.name) || null;
+    }
+
+    function getUserDisplayName(sessionToken: string, userId: number) {
+        if (!cachedUserNames.has(userId)) {
+            cachedUserNames.set(userId, getUserById(sessionToken, userId)
+                .then(userDisplayName)
+                .catch(() => null));
+        }
+        return cachedUserNames.get(userId)!;
+    }
+
     function pickAssigneesFromActors(actorsUsers: any, actorsGroups: any) {
         const usersArr: any[] = Array.isArray(actorsUsers)
             ? actorsUsers
@@ -316,7 +354,12 @@ export function createGlpiClient() {
             toText(techGroup?.name) ||
             null;
 
-        return { techAssignee, groupTech, requester };
+        return {
+            techAssignee,
+            groupTech,
+            requester,
+            requesterUserId: actorUserId(reqUser),
+        };
     }
 
     async function searchTicketIds(sessionToken: string, pageSize: number, maxPages: number): Promise<number[]> {
@@ -425,6 +468,10 @@ export function createGlpiClient() {
         const descriptionText = descriptionHtml ? stripHtml(descriptionHtml) : null;
         const category = toText(t?.itilcategories_id) || toText(t?.itilcategories) || toText(t?.category) || null;
         const requester = assign.requester || toText(t?.users_id_recipient) || toText(t?.users_id_requester) || null;
+        let requesterName: string | null = null;
+        if (assign.requesterUserId != null) {
+            requesterName = await getUserDisplayName(sessionToken, assign.requesterUserId);
+        }
         const groupTech = assign.groupTech || toText(t?.groups_id_tech) || toText(t?.groups_id_assign) || null;
         const techAssignee = assign.techAssignee || toText(t?.users_id_tech) || null;
 
@@ -439,6 +486,7 @@ export function createGlpiClient() {
             groupTech,
             techAssignee,
             requester,
+            requesterName,
             category,
             descriptionHtml,
             descriptionText,
