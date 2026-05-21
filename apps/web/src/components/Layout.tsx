@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, BookOpen, CalendarClock, ClipboardCheck, LayoutDashboard, LogOut, Settings, Ticket, UserRound } from "lucide-react";
+import { BarChart3, BookOpen, CalendarClock, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, Settings, Ticket, UserRound } from "lucide-react";
 import { cls } from "../lib/utils";
 import type { Session } from "../lib/api";
 
@@ -28,6 +28,7 @@ export default function Layout({
         { to: "/catalog", label: "Catalogo", icon: BookOpen, show: true },
         { to: "/meetings", label: "Reunioes", icon: CalendarClock, show: session.role === "admin" },
         { to: "/incidents", label: "Incidentes", icon: Ticket, show: session.role === "admin" },
+        { to: "/requisitions", label: "Requisicoes", icon: ClipboardList, show: session.role === "admin" },
     ].filter((n) => n.show);
 
     return (

@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import CatalogPage from "./pages/CatalogPage";
 import MeetingsPage from "./pages/MettingsPage";
 import IncidentsPage from "./pages/IncidentsPage";
+import RequisitionsPage from "./pages/RequisitionsPage";
 
 export default function App() {
   const session = useSession();
@@ -672,6 +673,10 @@ export default function App() {
           <Route
             path="/incidents"
             element={session.role === "admin" ? <IncidentsPage session={session} /> : <Navigate to="/me" replace />}
+          />
+          <Route
+            path="/requisitions"
+            element={session.role === "admin" ? <RequisitionsPage session={session} /> : <Navigate to="/me" replace />}
           />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
