@@ -10,6 +10,7 @@ type IncidentRow = {
     status: string;
     openedAt?: string | null;
     updatedAt?: string | null;
+    descriptionText?: string | null;
     requester?: string | null;
     requesterName?: string | null;
     techAssignee?: string | null;
@@ -25,6 +26,14 @@ type IncidentKpis = {
 
 type IncidentsResponse = {
     rows?: IncidentRow[];
+};
+
+type RecurringTheme = {
+    label: string;
+    count: number;
+    openCount: number;
+    pct: number;
+    sampleTitles: string[];
 };
 
 type FilterKey = "ALL" | "NEW" | "ASSIGNED" | "CLOSED" | "ATTENTION_NEW" | "ATTENTION_ASSIGNED" | "ATTENTION_OPEN";
@@ -50,6 +59,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [rows, setRows] = useState<IncidentRow[]>([]);
     const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
     const [filter, setFilter] = useState<FilterKey>("ALL");
+    const [theme, setTheme] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [err, setErr] = useState("");
 
@@ -91,15 +101,19 @@ export default function IncidentsPage({ session }: { session: Session }) {
         return { attentionNew, attentionAssigned, attentionOpen };
     }, [rows]);
 
+    const recurringThemes = useMemo(() => buildRecurringThemes(rows), [rows]);
+    const openThemes = useMemo(() => recurringThemes.filter((item) => item.openCount > 0).sort((a, b) => b.openCount - a.openCount || b.count - a.count), [recurringThemes]);
+
     const filteredRows = useMemo(() => {
+        let result = rows;
         if (filter === "NEW" || filter === "ASSIGNED" || filter === "CLOSED") {
-            return rows.filter((row) => normStatus(row.status) === filter);
+            result = rows.filter((row) => normStatus(row.status) === filter);
         }
-        if (filter === "ATTENTION_NEW") return attention.attentionNew;
-        if (filter === "ATTENTION_ASSIGNED") return attention.attentionAssigned;
-        if (filter === "ATTENTION_OPEN") return attention.attentionOpen;
-        return rows;
-    }, [attention, filter, rows]);
+        if (filter === "ATTENTION_NEW") result = attention.attentionNew;
+        if (filter === "ATTENTION_ASSIGNED") result = attention.attentionAssigned;
+        if (filter === "ATTENTION_OPEN") result = attention.attentionOpen;
+        return theme ? result.filter((row) => classifyTheme(row) === theme) : result;
+    }, [attention, filter, rows, theme]);
 
     return (
         <div>
@@ -147,10 +161,69 @@ export default function IncidentsPage({ session }: { session: Session }) {
                 </div>
             </section>
 
+            <section className="grid2" style={{ marginTop: 14 }}>
+                <div className="card" style={{ padding: 14 }}>
+                    <div className="cardTitle" style={{ marginBottom: 4 }}>Assuntos recorrentes</div>
+                    <div className="muted small" style={{ marginBottom: 12 }}>
+                        Leitura deterministica de titulo e descricao para identificar onde os incidentes se concentram.
+                    </div>
+                    <div style={{ display: "grid", gap: 8 }}>
+                        {recurringThemes.slice(0, 5).map((item) => (
+                            <ThemeRow
+                                key={item.label}
+                                active={theme === item.label}
+                                item={item}
+                                onClick={() => setTheme((current) => current === item.label ? null : item.label)}
+                            />
+                        ))}
+                        {!recurringThemes.length ? <div className="muted small">Sem temas recorrentes suficientes no cache.</div> : null}
+                    </div>
+                </div>
+
+                <div className="card" style={{ padding: 14 }}>
+                    <div className="cardTitle" style={{ marginBottom: 4 }}>Foco nos abertos</div>
+                    <div className="muted small" style={{ marginBottom: 12 }}>
+                        Temas que ainda aparecem em incidentes nao fechados.
+                    </div>
+                    {openThemes[0] ? (
+                        <>
+                            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10 }}>
+                                <div>
+                                    <div className="muted small">Maior concentracao aberta</div>
+                                    <div className="h2" style={{ marginTop: 4 }}>{openThemes[0].label}</div>
+                                </div>
+                                <button className="btn ghost small" onClick={() => setTheme(openThemes[0].label)}>
+                                    Ver na lista
+                                </button>
+                            </div>
+                            <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                {openThemes.slice(0, 3).map((item) => (
+                                    <span className="pill" key={`open-${item.label}`}>{item.openCount} aberto(s) em {item.label}</span>
+                                ))}
+                            </div>
+                            <div style={{ marginTop: 12, display: "grid", gap: 8 }}>
+                                {openThemes[0].sampleTitles.slice(0, 3).map((title) => (
+                                    <div key={title} className="small" style={{ borderLeft: "2px solid rgba(110,231,255,.34)", paddingLeft: 8 }}>
+                                        {title}
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="muted small">Nao ha temas abertos classificados no cache atual.</div>
+                    )}
+                </div>
+            </section>
+
             <section className="card" style={{ marginTop: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, flexWrap: "wrap" }}>
-                    <div className="cardTitle" style={{ marginBottom: 0 }}>{filterLabels[filter]}</div>
-                    <div className="muted small">{filteredRows.length} incidente(s)</div>
+                    <div className="cardTitle" style={{ marginBottom: 0 }}>
+                        {filterLabels[filter]}{theme ? ` / ${theme}` : ""}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div className="muted small">{filteredRows.length} incidente(s)</div>
+                        {theme ? <button className="btn ghost small" onClick={() => setTheme(null)}>Limpar assunto</button> : null}
+                    </div>
                 </div>
 
                 <div className="tableWrap" style={{ marginTop: 12 }}>
@@ -214,6 +287,59 @@ function summarizeKpis(rows: IncidentRow[]): IncidentKpis {
         if (status === "CLOSED") acc.CLOSED += 1;
         return acc;
     }, { ...emptyKpis });
+}
+
+function normText(value?: string | null) {
+    return String(value ?? "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function hasTerm(text: string, terms: string[]) {
+    return terms.some((term) => text.includes(normText(term)));
+}
+
+function classifyTheme(row: IncidentRow) {
+    const text = normText(`${row.title ?? ""} ${row.descriptionText ?? ""}`);
+    const themes = [
+        { label: "PPD e parcelamento", terms: ["ppd", "pva", "pvad", "parcelamento", "parcela", "reparcelamento", "amortizar", "desamortizar"] },
+        { label: "ALIM e ACT", terms: ["alim", "act", "auto de lancamento", "demonstrativo"] },
+        { label: "Certidoes e pendencias", terms: ["certidao", "circunstanciada", "pendencia", "pendencias", "ccis"] },
+        { label: "API e integracoes", terms: ["api", "integracao", "webservice", "retorno", "feriados"] },
+        { label: "DAEMS e pagamentos", terms: ["daems", "pagamento", "quitacao", "quitado", "baixa"] },
+        { label: "Chatbot e autoatendimento", terms: ["chatbot", "autoatendimento"] },
+        { label: "Acesso e permissao", terms: ["acesso", "permissao", "login", "senha", "perfil", "usuario"] },
+    ];
+
+    return themes.find((item) => hasTerm(text, item.terms))?.label ?? "Outros assuntos";
+}
+
+function buildRecurringThemes(rows: IncidentRow[]) {
+    const buckets = new Map<string, { label: string; count: number; openCount: number; sampleTitles: string[] }>();
+    for (const row of rows) {
+        const label = classifyTheme(row);
+        const item = buckets.get(label) ?? { label, count: 0, openCount: 0, sampleTitles: [] };
+        item.count += 1;
+        if (!isClosed(row)) item.openCount += 1;
+        if (item.sampleTitles.length < 3 && row.title) item.sampleTitles.push(row.title);
+        buckets.set(label, item);
+    }
+
+    const total = rows.length || 1;
+    return Array.from(buckets.values())
+        .sort((a, b) => {
+            if (a.label === "Outros assuntos") return 1;
+            if (b.label === "Outros assuntos") return -1;
+            return b.count - a.count || a.label.localeCompare(b.label);
+        })
+        .map((item) => ({
+            ...item,
+            pct: Number(((item.count / total) * 100).toFixed(1)),
+        }));
 }
 
 function loginKey(value?: string | null) {
@@ -290,6 +416,44 @@ function statusLabel(value?: string) {
 
 function Status({ value }: { value?: string }) {
     return <span className="pill">{statusLabel(value)}</span>;
+}
+
+function ThemeRow({
+    active,
+    item,
+    onClick,
+}: {
+    active: boolean;
+    item: RecurringTheme;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-pressed={active}
+            style={{
+                padding: 10,
+                borderRadius: 8,
+                border: active ? "1px solid rgba(110,231,255,.55)" : "1px solid rgba(255,255,255,.08)",
+                background: active ? "rgba(110,231,255,.12)" : "rgba(255,255,255,.03)",
+                color: "inherit",
+                cursor: "pointer",
+                textAlign: "left",
+            }}
+        >
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+                <span className="strong">{item.label}</span>
+                <span className="mono small">{item.count} / {item.pct}%</span>
+            </div>
+            <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,.08)", overflow: "hidden", marginTop: 8 }}>
+                <div style={{ width: `${Math.max(item.pct, 3)}%`, height: "100%", background: item.openCount ? "#FB923C" : "#6EE7C4" }} />
+            </div>
+            <div className="muted small" style={{ marginTop: 6 }}>
+                {item.openCount} aberto(s){item.sampleTitles[0] ? ` / Ex.: ${item.sampleTitles[0]}` : ""}
+            </div>
+        </button>
+    );
 }
 
 function Kpi({
