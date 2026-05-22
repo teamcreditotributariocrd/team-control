@@ -158,3 +158,9 @@ export type DiscordDailySchedule = {
     lastRunStatus: "OK" | "ERROR" | null;
     lastRunMessage: string | null;
 };
+
+export type TfsSupportBugConfig = {
+    areaPath: string;
+    iterationPath: string;
+    updatedAt: string | null;
+};

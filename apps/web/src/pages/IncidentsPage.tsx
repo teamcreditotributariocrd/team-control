@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Archive, BellRing, Bug, Database, Info, RefreshCw, TimerReset, TriangleAlert, UsersRound } from "lucide-react";
+import { Archive, BellRing, Bug, CircleAlert, CircleCheck, Database, ExternalLink, Info, LoaderCircle, RefreshCw, TimerReset, TriangleAlert, UsersRound, X } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 import type { Collaborator } from "../types";
 
@@ -10,7 +10,10 @@ type IncidentRow = {
     status: string;
     openedAt?: string | null;
     updatedAt?: string | null;
+    descriptionHtml?: string | null;
     descriptionText?: string | null;
+    priority?: string | null;
+    category?: string | null;
     requester?: string | null;
     requesterName?: string | null;
     techAssignee?: string | null;
@@ -84,6 +87,7 @@ export default function IncidentsPage({ session }: { session: Session }) {
     const [loading, setLoading] = useState(true);
     const [syncing, setSyncing] = useState(false);
     const [bugs, setBugs] = useState<Record<string, BugCreationState>>({});
+    const [selectedIncident, setSelectedIncident] = useState<IncidentRow | null>(null);
     const [err, setErr] = useState("");
 
     async function load(active = () => true) {
@@ -114,6 +118,17 @@ export default function IncidentsPage({ session }: { session: Session }) {
             active = false;
         };
     }, [session]);
+
+    useEffect(() => {
+        if (!selectedIncident) return;
+
+        function closeOnEscape(event: KeyboardEvent) {
+            if (event.key === "Escape") setSelectedIncident(null);
+        }
+
+        window.addEventListener("keydown", closeOnEscape);
+        return () => window.removeEventListener("keydown", closeOnEscape);
+    }, [selectedIncident]);
 
     async function syncCache() {
         setSyncing(true);
@@ -284,7 +299,22 @@ export default function IncidentsPage({ session }: { session: Session }) {
                             {filteredRows.map((row) => {
                                 const bug = bugs[String(row.id)];
                                 return (
-                                    <tr key={String(row.id)}>
+                                    <tr
+                                        key={String(row.id)}
+                                        onClick={() => setSelectedIncident(row)}
+                                        onKeyDown={(event) => {
+                                            if (event.currentTarget === event.target && (event.key === "Enter" || event.key === " ")) {
+                                                event.preventDefault();
+                                                setSelectedIncident(row);
+                                            }
+                                        }}
+                                        tabIndex={0}
+                                        aria-label={`Abrir detalhes do incidente ${row.id}`}
+                                        style={{
+                                            cursor: "pointer",
+                                            background: selectedIncident?.id === row.id ? "rgba(110,231,255,.08)" : undefined,
+                                        }}
+                                    >
                                         <td className="mono">{row.id}</td>
                                         <td><Status value={row.status} /></td>
                                         <td>{firstAssigneeName(row.techAssignee, assigneeNames)}</td>
@@ -292,9 +322,11 @@ export default function IncidentsPage({ session }: { session: Session }) {
                                         <td>{row.requesterName ?? row.requester ?? "-"}</td>
                                         <td className="mono">{formatDate(row.openedAt)}</td>
                                         <td className="mono">{formatDate(row.updatedAt)}</td>
-                                        <td>{row.url ? <a className="link" href={row.url} target="_blank" rel="noreferrer">Abrir</a> : "-"}</td>
+                                        <td onClick={(event) => event.stopPropagation()}>
+                                            {row.url ? <a className="link" href={row.url} target="_blank" rel="noreferrer">Abrir</a> : "-"}
+                                        </td>
                                         <td style={{ minWidth: 120 }}>
-                                            <BugAction state={bug} onCreate={() => createBug(row)} />
+                                            <BugAction state={bug} onCreate={() => createBug(row)} compact />
                                         </td>
                                     </tr>
                                 );
@@ -308,6 +340,16 @@ export default function IncidentsPage({ session }: { session: Session }) {
                     </table>
                 </div>
             </section>
+
+            {selectedIncident ? (
+                <IncidentDrawer
+                    row={selectedIncident}
+                    assignee={firstAssigneeName(selectedIncident.techAssignee, assigneeNames)}
+                    bug={bugs[String(selectedIncident.id)]}
+                    onClose={() => setSelectedIncident(null)}
+                    onCreateBug={() => createBug(selectedIncident)}
+                />
+            ) : null}
         </div>
     );
 }
@@ -467,39 +509,221 @@ function Status({ value }: { value?: string }) {
 function BugAction({
     state,
     onCreate,
+    compact = false,
 }: {
     state?: BugCreationState;
     onCreate: () => void;
+    compact?: boolean;
 }) {
+    return (
+        <div
+            onClick={(event) => event.stopPropagation()}
+            style={{ display: "grid", gap: compact ? 5 : 8, justifyItems: "start" }}
+        >
+            {!state?.created ? (
+                <button
+                    type="button"
+                    className="btn danger small"
+                    onClick={onCreate}
+                    disabled={state?.creating}
+                    title="Criar Bug no time de suporte com a descricao do chamado"
+                >
+                    <Bug size={14} />
+                    {state?.creating ? "Criando..." : state?.error ? "Tentar novamente" : "Criar bug"}
+                </button>
+            ) : null}
+            <BugFeedback state={state} compact={compact} />
+        </div>
+    );
+}
+
+function BugFeedback({ state, compact }: { state?: BugCreationState; compact: boolean }) {
+    if (state?.creating) {
+        return (
+            <span className="pill warn small">
+                <LoaderCircle size={13} style={{ animation: "spin 1s linear infinite" }} />
+                {compact ? "Criando no TFS" : "Criando Bug no TFS..."}
+            </span>
+        );
+    }
+
     if (state?.created) {
         return (
             <a
-                className="link small"
+                className="pill ok small"
                 href={state.created.url}
                 target="_blank"
                 rel="noreferrer"
                 title={`${state.created.areaPath} / ${state.created.iterationPath}`}
+                style={{ color: "inherit", textDecoration: "none" }}
             >
-                Bug #{state.created.id}
+                <CircleCheck size={13} />
+                Bug #{state.created.id} criado
+                <ExternalLink size={12} />
             </a>
         );
     }
 
+    if (state?.error) {
+        return (
+            <span className="pill bad small" title={state.error}>
+                <CircleAlert size={13} />
+                {compact ? "Falhou" : "Falhou ao criar Bug"}
+            </span>
+        );
+    }
+
+    return null;
+}
+
+function IncidentDrawer({
+    row,
+    assignee,
+    bug,
+    onClose,
+    onCreateBug,
+}: {
+    row: IncidentRow;
+    assignee: string;
+    bug?: BugCreationState;
+    onClose: () => void;
+    onCreateBug: () => void;
+}) {
+    const descriptionHtml = incidentDescriptionHtml(row);
+
     return (
-        <div style={{ display: "grid", gap: 4, justifyItems: "start" }}>
-            <button
-                type="button"
-                className="btn danger small"
-                onClick={onCreate}
-                disabled={state?.creating}
-                title="Criar Bug no time de suporte com a descricao do chamado"
+        <div
+            role="presentation"
+            onClick={onClose}
+            style={{
+                position: "fixed",
+                inset: 0,
+                zIndex: 40,
+                display: "flex",
+                justifyContent: "flex-end",
+                background: "rgba(3,6,14,.58)",
+                backdropFilter: "blur(3px)",
+            }}
+        >
+            <aside
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Incidente ${row.id}`}
+                onClick={(event) => event.stopPropagation()}
+                style={{
+                    width: "min(680px, 100vw)",
+                    height: "100vh",
+                    overflow: "auto",
+                    padding: "18px",
+                    borderLeft: "1px solid rgba(255,255,255,.12)",
+                    background: "linear-gradient(180deg, rgba(11,18,32,.98), rgba(7,11,20,.99))",
+                    boxShadow: "-18px 0 56px rgba(0,0,0,.42)",
+                }}
             >
-                <Bug size={14} />
-                {state?.creating ? "Criando..." : "Criar bug"}
-            </button>
-            {state?.error ? <span className="small" title={state.error} style={{ color: "#FCA5A5" }}>Falhou</span> : null}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                    <div>
+                        <div className="muted small mono">Incidente #{row.id}</div>
+                        <div className="h1" style={{ marginTop: 6, lineHeight: 1.2 }}>{row.title}</div>
+                    </div>
+                    <button className="btn ghost small" onClick={onClose} aria-label="Fechar detalhes do incidente">
+                        <X size={16} />
+                    </button>
+                </div>
+
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                    <Status value={row.status} />
+                    {row.priority ? <span className="pill small">{row.priority}</span> : null}
+                    {row.url ? (
+                        <a className="btn ghost small" href={row.url} target="_blank" rel="noreferrer">
+                            <ExternalLink size={14} />
+                            Abrir GLPI
+                        </a>
+                    ) : null}
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, marginTop: 16 }}>
+                    <DrawerField label="Solicitante" value={row.requesterName ?? row.requester ?? "-"} />
+                    <DrawerField label="Atribuido para" value={assignee} />
+                    <DrawerField label="Abertura" value={formatDate(row.openedAt)} mono />
+                    <DrawerField label="Ultima atualizacao" value={formatDate(row.updatedAt)} mono />
+                </div>
+
+                {row.category ? (
+                    <div style={{ marginTop: 14 }}>
+                        <DrawerField label="Categoria" value={row.category} />
+                    </div>
+                ) : null}
+
+                <section style={{ marginTop: 18, padding: 14, border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, background: "rgba(255,255,255,.035)" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
+                        <div>
+                            <div className="cardTitle" style={{ marginBottom: 4 }}>Bug no TFS</div>
+                            <div className="muted small">Cria o Bug de suporte com a descricao deste incidente.</div>
+                        </div>
+                        <BugAction state={bug} onCreate={onCreateBug} />
+                    </div>
+                </section>
+
+                <section style={{ marginTop: 18 }}>
+                    <div className="cardTitle">Descricao do chamado</div>
+                    <div
+                        style={{
+                            padding: 14,
+                            border: "1px solid rgba(255,255,255,.08)",
+                            borderRadius: 8,
+                            background: "rgba(255,255,255,.035)",
+                            lineHeight: 1.5,
+                            overflowWrap: "anywhere",
+                        }}
+                        dangerouslySetInnerHTML={{ __html: descriptionHtml }}
+                    />
+                </section>
+            </aside>
         </div>
     );
+}
+
+function DrawerField({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+    return (
+        <div style={{ minWidth: 0, padding: 10, border: "1px solid rgba(255,255,255,.08)", borderRadius: 8, background: "rgba(255,255,255,.035)" }}>
+            <div className="label">{label}</div>
+            <div className={mono ? "mono small" : "strong"} style={{ overflowWrap: "anywhere" }}>{value}</div>
+        </div>
+    );
+}
+
+function incidentDescriptionHtml(row: IncidentRow) {
+    const html = String(row.descriptionHtml ?? "").trim();
+    if (html) {
+        const origin = glpiOrigin(row.url);
+        return html
+            .replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, " ")
+            .replace(/<style[\s\S]*?>[\s\S]*?<\/style>/gi, " ")
+            .replace(/\son\w+=(["'])[\s\S]*?\1/gi, "")
+            .replace(/\b(href|src)=(["'])\s*javascript:[\s\S]*?\2/gi, "$1=$2#$2")
+            .replace(/\b(href|src)=(["'])\/([^"']*)\2/gi, (_match, attr, quote, path) =>
+                `${attr}=${quote}${origin ? `${origin}/` : "/"}${path}${quote}`
+            )
+            .replace(/<img\b/gi, "<img style=\"max-width:100%;height:auto;border-radius:8px\" ");
+    }
+
+    return `<p>${escapeHtml(row.descriptionText || "Chamado sem descricao no cache GLPI.").replace(/\n/g, "<br>")}</p>`;
+}
+
+function glpiOrigin(url?: string | null) {
+    try {
+        return url ? new URL(url).origin : "";
+    } catch {
+        return "";
+    }
+}
+
+function escapeHtml(value: string) {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 }
 
 function ThemeRow({

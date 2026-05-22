@@ -7,8 +7,13 @@ type JsonPatchOp = {
   value: unknown;
 };
 
-const SUPPORT_AREA_PATH = "CSIS-G07\\SUPORTE\\CRD";
-const SUPPORT_ITERATION_PATH = "CSIS-G07\\CRD - SUP - Sprint 89";
+export const SUPPORT_BUG_AREA_PATH = "CSIS-G07\\SUPORTE\\CRD";
+export const DEFAULT_SUPPORT_BUG_ITERATION_PATH = "CSIS-G07\\CRD - SUP - Sprint 95";
+
+export type SupportBugTarget = {
+  areaPath: string;
+  iterationPath: string;
+};
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -72,30 +77,30 @@ function reproStepsForBug(incident: GlpiIncident) {
   ].join("");
 }
 
-export function buildCreateBugPayload(incident: GlpiIncident): JsonPatchOp[] {
+export function buildCreateBugPayload(incident: GlpiIncident, target: SupportBugTarget): JsonPatchOp[] {
   return [
     { op: "add", path: "/fields/System.Title", value: titleForBug(incident) },
-    { op: "add", path: "/fields/System.AreaPath", value: SUPPORT_AREA_PATH },
-    { op: "add", path: "/fields/System.IterationPath", value: SUPPORT_ITERATION_PATH },
+    { op: "add", path: "/fields/System.AreaPath", value: target.areaPath },
+    { op: "add", path: "/fields/System.IterationPath", value: target.iterationPath },
     { op: "add", path: "/fields/Microsoft.VSTS.TCM.ReproSteps", value: reproStepsForBug(incident) },
   ];
 }
 
-export async function createTfsBugFromIncident(incident: GlpiIncident) {
+export async function createTfsBugFromIncident(incident: GlpiIncident, target: SupportBugTarget) {
   const collectionUrl = requireEnv("TFS_COLLECTION_URL").replace(/\/+$/, "");
   const project = requireEnv("TFS_PROJECT");
   const client = createNtlmAxiosClient();
   const url = `${collectionUrl}/${project}/_apis/wit/workitems/$Bug?api-version=1.0`;
 
-  const response = await client.patch(url, buildCreateBugPayload(incident), {
+  const response = await client.patch(url, buildCreateBugPayload(incident, target), {
     headers: { "Content-Type": "application/json-patch+json" },
   });
 
   return {
     id: Number(response.data.id),
     title: response.data.fields?.["System.Title"] ?? titleForBug(incident),
-    areaPath: response.data.fields?.["System.AreaPath"] ?? SUPPORT_AREA_PATH,
-    iterationPath: response.data.fields?.["System.IterationPath"] ?? SUPPORT_ITERATION_PATH,
+    areaPath: response.data.fields?.["System.AreaPath"] ?? target.areaPath,
+    iterationPath: response.data.fields?.["System.IterationPath"] ?? target.iterationPath,
     url: response.data?._links?.html?.href ?? `${collectionUrl}/${project}/_workitems/edit/${response.data.id}`,
   };
 }

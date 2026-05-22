@@ -151,7 +151,8 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
         }
 
         try {
-            return reply.send(await createTfsBugFromIncident(incident));
+            const supportBugConfig = deps.tfsSupportBugConfigStore.get();
+            return reply.send(await createTfsBugFromIncident(incident, supportBugConfig));
         } catch (e: any) {
             return reply.code(502).send({ error: "TFS_BUG_CREATE_ERROR", detail: String(e?.response?.data?.message ?? e?.message ?? e) });
         }

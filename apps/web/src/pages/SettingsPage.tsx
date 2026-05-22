@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import PageOverlayLoading from "../components/PageOverlayLoading";
 import { apiGet, apiSend } from "../lib/api";
-import type { Collaborator, DiscordDailySchedule, Role } from "../types";
+import type { Collaborator, DiscordDailySchedule, Role, TfsSupportBugConfig } from "../types";
 
 type CollaboratorForm = Omit<Collaborator, "id" | "hasPassword"> & {
     id?: string;
@@ -18,10 +18,12 @@ export default function SettingsPage({ session }: { session: any }) {
     const [matrixMonths, setMatrixMonths] = useState(6);
     const [goalDrafts, setGoalDrafts] = useState<Record<string, Record<string, number>>>({});
     const [dailySchedule, setDailySchedule] = useState<DiscordDailySchedule | null>(null);
+    const [supportBugConfig, setSupportBugConfig] = useState<TfsSupportBugConfig | null>(null);
     const [scheduleDraft, setScheduleDraft] = useState<{ enabled: boolean; times: string[] }>({
         enabled: true,
         times: ["09:00", "15:00"],
     });
+    const [supportBugIterationDraft, setSupportBugIterationDraft] = useState("");
 
     const [form, setForm] = useState<CollaboratorForm>({
         displayName: "",
@@ -67,6 +69,9 @@ export default function SettingsPage({ session }: { session: any }) {
             const schedule = await apiGet<DiscordDailySchedule>("/api/discord-daily-schedule", session);
             setDailySchedule(schedule);
             setScheduleDraft({ enabled: schedule.enabled, times: schedule.times.length ? schedule.times : ["09:00", "15:00"] });
+            const bugConfig = await apiGet<TfsSupportBugConfig>("/api/tfs-support-bug-config", session);
+            setSupportBugConfig(bugConfig);
+            setSupportBugIterationDraft(bugConfig.iterationPath);
         } catch (e: any) {
             setErr(String(e?.message ?? e));
         } finally {
@@ -183,6 +188,22 @@ export default function SettingsPage({ session }: { session: any }) {
         }
     }
 
+    async function saveSupportBugConfig() {
+        setLoading(true);
+        setErr("");
+        try {
+            const saved = await apiSend<TfsSupportBugConfig>("/api/tfs-support-bug-config", "PUT", {
+                iterationPath: supportBugIterationDraft,
+            }, session);
+            setSupportBugConfig(saved);
+            setSupportBugIterationDraft(saved.iterationPath);
+        } catch (e: any) {
+            setErr(String(e?.message ?? e));
+        } finally {
+            setLoading(false);
+        }
+    }
+
     return (
         <div>
             <PageOverlayLoading show={loading} label="Salvando..." />
@@ -279,6 +300,39 @@ export default function SettingsPage({ session }: { session: any }) {
                             <div className="muted small" style={{ marginTop: 10, whiteSpace: "pre-wrap" }}>
                                 {dailySchedule?.lastRunMessage ?? "Use Enviar agora para validar o webhook e o relatorio."}
                             </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="card" style={{ marginBottom: 14 }}>
+                <div className="pageHeader" style={{ marginBottom: 12, paddingBottom: 12 }}>
+                    <div>
+                        <div className="cardTitle" style={{ marginBottom: 4 }}>Bug de suporte no TFS</div>
+                        <div className="muted small">Destino usado pelo botao Criar bug na tela de incidentes.</div>
+                    </div>
+                    <div className="pageHeaderRight">
+                        <button className="btn primary" onClick={saveSupportBugConfig} disabled={loading || !supportBugIterationDraft.trim()}>
+                            Salvar iteration
+                        </button>
+                    </div>
+                </div>
+
+                <div className="grid2">
+                    <div>
+                        <div className="label">Area fixa</div>
+                        <input className="input" value={supportBugConfig?.areaPath ?? "CSIS-G07\\SUPORTE\\CRD"} disabled />
+                    </div>
+                    <div>
+                        <div className="label">Iteration atual</div>
+                        <input
+                            className="input"
+                            value={supportBugIterationDraft}
+                            onChange={(e) => setSupportBugIterationDraft(e.target.value)}
+                            placeholder="CSIS-G07\CRD - SUP - Sprint 95"
+                        />
+                        <div className="muted small" style={{ marginTop: 8 }}>
+                            {supportBugConfig?.updatedAt ? `Atualizada em ${new Date(supportBugConfig.updatedAt).toLocaleString()}` : "Usando configuracao inicial."}
                         </div>
                     </div>
                 </div>

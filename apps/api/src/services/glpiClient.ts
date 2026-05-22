@@ -164,7 +164,7 @@ export function createGlpiClient() {
     const base = env("GLPI_API_BASE", "https://suporte.ms.gov.br/apirest.php").replace(/\/+$/, "");
     const appToken = env("GLPI_APP_TOKEN");
     const userToken = env("GLPI_USER_TOKEN");
-    const frontBase = base.replace(/\/apirest\.php$/i, "");
+    const frontBase = base.replace(/\/(?:apirest\.php|api\.php\/v1)$/i, "");
 
     let cachedOpts: { at: number; opts: TicketSearchOptionsResponse } | null = null;
     const cachedUserNames = new Map<number, Promise<string | null>>();

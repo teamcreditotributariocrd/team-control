@@ -4,6 +4,7 @@ import { createCollaboratorsStore } from "./store/collaboratorsStore.js";
 import { createMeetingStore } from "./store/meetingStore.js";
 import { createAlertScheduleStore } from "./store/alertScheduleStore.js";
 import { createIncidentsCacheStore } from "./store/incidentsCacheStore.js";
+import { createTfsSupportBugConfigStore } from "./store/tfsSupportBugConfigStore.js";
 
 export function createDeps() {
   const store = createStore();
@@ -11,6 +12,7 @@ export function createDeps() {
   const meetingStore = createMeetingStore();
   const alertScheduleStore = createAlertScheduleStore();
   const incidentsCacheStore = createIncidentsCacheStore();
+  const tfsSupportBugConfigStore = createTfsSupportBugConfigStore();
 
   return {
     store,
@@ -18,6 +20,7 @@ export function createDeps() {
     meetingStore,
     alertScheduleStore,
     incidentsCacheStore,
+    tfsSupportBugConfigStore,
     project: process.env.TFS_PROJECT!,
   };
 }
