@@ -1,11 +1,11 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, BookOpen, CalendarClock, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, Settings, Ticket, UserRound } from "lucide-react";
+import { BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
 import { cls } from "../lib/utils";
 import type { Session } from "../lib/api";
 
 function isActiveRoute(to: string, pathname: string) {
-    const exact = new Set(["/me", "/dashboard", "/settings", "/catalog", "/meetings"]);
+    const exact = new Set(["/me", "/dashboard", "/settings", "/catalog", "/meetings", "/calendar", "/log-analytics"]);
     if (exact.has(to)) return pathname === to;
     return pathname === to || pathname.startsWith(to + "/");
 }
@@ -26,6 +26,8 @@ export default function Layout({
         { to: "/audit", label: "Auditoria", icon: ClipboardCheck, show: session.role === "admin" },
         { to: "/settings", label: "Configuracoes", icon: Settings, show: session.role === "admin" },
         { to: "/catalog", label: "Catalogo", icon: BookOpen, show: true },
+        { to: "/calendar", label: "Calendario", icon: CalendarDays, show: true },
+        { to: "/log-analytics", label: "Log Analytics", icon: ScrollText, show: true },
         { to: "/meetings", label: "Reunioes", icon: CalendarClock, show: session.role === "admin" },
         { to: "/incidents", label: "Incidentes", icon: Ticket, show: true },
         { to: "/requisitions", label: "Requisicoes", icon: ClipboardList, show: true },

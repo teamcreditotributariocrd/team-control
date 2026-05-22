@@ -192,12 +192,10 @@ export default function IncidentsPage({ session }: { session: Session }) {
                         <RefreshCw size={14} />
                         Recarregar
                     </button>
-                    {session.role === "admin" ? (
-                        <button className="btn ghost small" onClick={syncCache} disabled={loading || syncing}>
-                            <Database size={14} />
-                            {syncing ? "Sincronizando..." : "Atualizar cache GLPI"}
-                        </button>
-                    ) : null}
+                    <button className="btn ghost small" onClick={syncCache} disabled={loading || syncing}>
+                        <Database size={14} />
+                        {syncing ? "Sincronizando..." : "Atualizar cache GLPI"}
+                    </button>
                 </div>
             </div>
 

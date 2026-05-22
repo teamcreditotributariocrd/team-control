@@ -164,3 +164,76 @@ export type TfsSupportBugConfig = {
     iterationPath: string;
     updatedAt: string | null;
 };
+
+export type CalendarEventType = "HOLIDAY" | "VACATION" | "RECESS" | "MEETING";
+
+export type CalendarEvent = {
+    id: string;
+    title: string;
+    type: CalendarEventType;
+    startDate: string;
+    endDate: string;
+    person: string | null;
+    notes: string | null;
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type LogParser = "CREDTRIB_BAIXA_AUTOMATICA";
+
+export type LogSource = {
+    id: string;
+    name: string;
+    system: string;
+    description: string;
+    path: string;
+    filePrefix: string;
+    parser: LogParser;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type LogAnalyticsAnalysis = {
+    source: LogSource;
+    files: string[];
+    kpis: {
+        executions: number;
+        runsWithErrors: number;
+        errorsFound: number;
+        loweredSuccess: number;
+        updatedToPaid: number;
+        averageDurationSeconds: number;
+        lastRunAt: string | null;
+    };
+    executions: Array<{
+        file: string;
+        startedAt: string;
+        finishedAt: string | null;
+        durationSeconds: number | null;
+        emittedProcessed: number;
+        updatedToPaid: number;
+        paidProcessed: number;
+        loweredSuccess: number;
+        errorsFound: number;
+    }>;
+    daily: Array<{
+        day: string;
+        executions: number;
+        errors: number;
+        loweredSuccess: number;
+        averageDurationSeconds: number;
+    }>;
+    errorPatterns: Array<{
+        signature: string;
+        count: number;
+        lastAt: string;
+        samples: string[];
+    }>;
+    recentErrors: Array<{
+        at: string;
+        file: string;
+        message: string;
+        signature: string;
+    }>;
+};

@@ -26,6 +26,8 @@ import { incidentsRoutes } from "./routes/incidents.js";
 import { tfsTasksRoutes } from "./routes/tfsTasks.js";
 import { discordDailyScheduleRoutes } from "./routes/discordDailySchedule.js";
 import { tfsSupportBugConfigRoutes } from "./routes/tfsSupportBugConfig.js";
+import { calendarRoutes } from "./routes/calendar.js";
+import { logAnalyticsRoutes } from "./routes/logAnalytics.js";
 import { startDiscordDailyScheduler } from "./services/discordDailyRunner.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -90,6 +92,8 @@ await incidentsRoutes(app, deps);
 await app.register(tfsTasksRoutes);
 await discordDailyScheduleRoutes(app, deps, apiRoot);
 await tfsSupportBugConfigRoutes(app, deps);
+await calendarRoutes(app, deps);
+await logAnalyticsRoutes(app, deps);
 
 await app.register(transcribeRoutes);
 

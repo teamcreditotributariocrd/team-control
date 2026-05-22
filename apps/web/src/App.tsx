@@ -15,6 +15,8 @@ import CatalogPage from "./pages/CatalogPage";
 import MeetingsPage from "./pages/MettingsPage";
 import IncidentsPage from "./pages/IncidentsPage";
 import RequisitionsPage from "./pages/RequisitionsPage";
+import CalendarPage from "./pages/CalendarPage";
+import LogAnalyticsPage from "./pages/LogAnalyticsPage";
 
 export default function App() {
   const session = useSession();
@@ -668,6 +670,8 @@ export default function App() {
           <Route path="/user/:uniqueName" element={session.role === "admin" ? <UserDrilldownPage session={session} /> : <Navigate to="/me" replace />} />
           <Route path="/settings" element={session.role === "admin" ? <SettingsPage session={session} /> : <Navigate to="/me" replace />} />
           <Route path="/catalog" element={<CatalogPage session={session} />} />
+          <Route path="/calendar" element={<CalendarPage session={session} />} />
+          <Route path="/log-analytics" element={<LogAnalyticsPage session={session} />} />
           <Route path="/me" element={<MePage session={session} />} />
           <Route path="/meetings" element={session.role === "admin" ? <MeetingsPage session={session} /> : <Navigate to="/me" replace />} />
           <Route

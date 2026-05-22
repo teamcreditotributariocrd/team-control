@@ -81,7 +81,7 @@ export async function incidentsRoutes(app: FastifyInstance, deps: ReturnType<typ
     app.post("/api/incidents/sync", async (req, reply) => {
         const user = getUser(req);
         try {
-            assertAdmin(user);
+            assertReader(user);
         } catch (e: any) {
             return sendAuthError(reply, e);
         }
