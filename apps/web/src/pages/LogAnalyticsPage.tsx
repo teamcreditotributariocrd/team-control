@@ -124,16 +124,16 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     </div>
                     <button className="btn ghost" onClick={() => loadAnalysis()} disabled={reading || !selectedId}>
                         <RefreshCw size={16} />
-                        {reading ? "Lendo..." : "Atualizar analise"}
+                        {reading ? "Lendo logs..." : "Ler logs"}
                     </button>
                 </div>
             </div>
 
             {err ? <div className="alert">{err}</div> : null}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 430px), 1fr))", gap: 14, alignItems: "start" }}>
-                <aside style={{ display: "grid", gap: 14 }}>
-                    <section className="card">
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 430px), 1fr))", gap: 14, alignItems: "start", minWidth: 0 }}>
+                <aside style={{ display: "grid", gap: 14, minWidth: 0 }}>
+                    <section className="card" style={{ minWidth: 0 }}>
                         <div className="cardTitle">Fontes configuradas</div>
                         {loading ? <div className="muted">Carregando fontes...</div> : null}
                         <div style={{ display: "grid", gap: 8 }}>
@@ -151,6 +151,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                     tabIndex={0}
                                     style={{
                                         padding: 10,
+                                        minWidth: 0,
                                         borderRadius: 8,
                                         border: selectedId === source.id ? "1px solid rgba(110,231,255,.48)" : "1px solid rgba(255,255,255,.08)",
                                         background: selectedId === source.id ? "rgba(110,231,255,.11)" : "rgba(255,255,255,.03)",
@@ -165,6 +166,20 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                     </div>
                                     <div className="muted small" style={{ marginTop: 5 }}>{source.description}</div>
                                     <div className="mono small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>{source.path}</div>
+                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                                        <button
+                                            type="button"
+                                            className="btn primary small"
+                                            onClick={(event) => {
+                                                event.stopPropagation();
+                                                setSelectedId(source.id);
+                                                loadAnalysis(source.id);
+                                            }}
+                                            disabled={reading}
+                                        >
+                                            <FolderSearch size={14} />
+                                            Ler logs
+                                        </button>
                                     {session.role === "admin" ? (
                                         <button
                                             type="button"
@@ -173,11 +188,11 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                                 event.stopPropagation();
                                                 setDraft(fromSource(source));
                                             }}
-                                            style={{ marginTop: 8 }}
                                         >
                                             Configurar
                                         </button>
                                     ) : null}
+                                    </div>
                                 </div>
                             ))}
                             {!sources.length ? <div className="muted small">Nenhuma fonte configurada.</div> : null}
@@ -185,7 +200,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     </section>
 
                     {session.role === "admin" ? (
-                        <section className="card">
+                        <section className="card" style={{ minWidth: 0 }}>
                             <div className="cardTitle">{draft.id ? "Editar fonte" : "Nova fonte"}</div>
                             <div className="label">Nome / assunto</div>
                             <input className="input" value={draft.name} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} />
@@ -205,6 +220,9 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                             <input className="input mono" value={draft.path} onChange={(e) => setDraft((current) => ({ ...current, path: e.target.value }))} />
                             <div className="label" style={{ marginTop: 10 }}>Prefixo dos arquivos</div>
                             <input className="input mono" value={draft.filePrefix} onChange={(e) => setDraft((current) => ({ ...current, filePrefix: e.target.value }))} placeholder="CREDTRIBBaixaAutomatica.exe" />
+                            <div className="muted small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>
+                                O parser atual procura arquivos no formato <span className="mono">{draft.filePrefix.trim() || "prefixo"}.YYYYMMDD.log</span> e espera o resumo da baixa automatica.
+                            </div>
                             <div className="label" style={{ marginTop: 10 }}>O que significa</div>
                             <textarea className="input" rows={3} value={draft.description} onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))} />
                             <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
@@ -224,7 +242,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                 </aside>
 
                 <main style={{ display: "grid", gap: 14, minWidth: 0 }}>
-                    <section className="card">
+                    <section className="card" style={{ minWidth: 0 }}>
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                             <div>
                                 <div className="cardTitle" style={{ marginBottom: 4 }}>{analysis?.source.name ?? "Analise"}</div>
@@ -235,10 +253,32 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 {analysis?.files.length ?? 0} arquivo(s) lido(s)
                             </span>
                         </div>
+                        {selectedId ? (
+                            <div className="muted small" style={{ marginTop: 10 }}>
+                                Selecionar uma fonte inicia a leitura. Use Ler logs para reler os arquivos da janela escolhida.
+                            </div>
+                        ) : null}
                     </section>
 
                     {analysis ? (
                         <>
+                            {!analysis.files.length ? (
+                                <section className="card" style={{ borderColor: "rgba(255,209,102,.34)", minWidth: 0 }}>
+                                    <div className="cardTitle">Nenhum arquivo compativel encontrado</div>
+                                    <div className="muted">
+                                        Confira o caminho da pasta e o prefixo da fonte. Este parser procura arquivos diarios no formato
+                                        {" "}<span className="mono">{analysis.source.filePrefix}.YYYYMMDD.log</span>.
+                                    </div>
+                                </section>
+                            ) : analysis.kpis.executions === 0 ? (
+                                <section className="card" style={{ borderColor: "rgba(255,209,102,.34)", minWidth: 0 }}>
+                                    <div className="cardTitle">Arquivos lidos, mas sem execucoes reconhecidas</div>
+                                    <div className="muted">
+                                        Os arquivos foram encontrados, mas o parser Baixa automatica CREDTRIB nao identificou blocos de resumo neles.
+                                        Essa fonte precisa usar logs com o mesmo formato ou ganhar um parser proprio.
+                                    </div>
+                                </section>
+                            ) : null}
                             <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 10 }}>
                                 <Kpi label="Execucoes" value={analysis.kpis.executions} icon={<ServerCog size={18} />} />
                                 <Kpi label="DAEMS baixados" value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} />

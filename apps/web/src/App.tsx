@@ -38,6 +38,7 @@ export default function App() {
         --ok:#39E58C;
         --warn:#FFD166;
       }
+      *,*::before,*::after{box-sizing:border-box}
       body{
         margin:0;
         background: radial-gradient(1200px 600px at 20% 0%, rgba(110,231,255,.18), transparent 60%),
@@ -82,7 +83,7 @@ export default function App() {
         background:rgba(7,11,20,.55);backdrop-filter:blur(10px)
       }
       .topTitle{font-weight:800}
-      .content{padding:18px}
+      .content{padding:18px;min-width:0;overflow-x:hidden}
       .pageHeader{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
       .pageHeaderRight{display:flex;align-items:flex-end;gap:10px}
       .h1{font-size:22px;font-weight:950}
