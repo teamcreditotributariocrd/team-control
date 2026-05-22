@@ -142,9 +142,9 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
 
             {err ? <div className="alert">{err}</div> : null}
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 430px), 1fr))", gap: 14, alignItems: "start", minWidth: 0 }}>
-                <aside style={{ display: "grid", gap: 14, minWidth: 0 }}>
-                    <section className="card" style={{ minWidth: 0 }}>
+            <div className="logAnalyticsLayout">
+                <aside className="logAnalyticsColumn">
+                    <section className="card logAnalyticsCard">
                         <div className="cardTitle">Fontes configuradas</div>
                         {loading ? <div className="muted">Carregando fontes...</div> : null}
                         <div style={{ display: "grid", gap: 8 }}>
@@ -171,7 +171,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                         cursor: "pointer",
                                     }}
                                 >
-                                    <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                                    <div className="logAnalyticsSourceHeader">
                                         <span className="strong">{source.name}</span>
                                         <span className="pill small">{source.system}</span>
                                     </div>
@@ -211,7 +211,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     </section>
 
                     {session.role === "admin" ? (
-                        <section className="card" style={{ minWidth: 0 }}>
+                        <section className="card logAnalyticsCard">
                             <div className="cardTitle">{draft.id ? "Editar fonte" : "Nova fonte"}</div>
                             <div className="label">Nome / assunto</div>
                             <input className="input" value={draft.name} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} />
@@ -254,8 +254,8 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     ) : null}
                 </aside>
 
-                <main style={{ display: "grid", gap: 14, minWidth: 0 }}>
-                    <section className="card" style={{ minWidth: 0 }}>
+                <main className="logAnalyticsColumn">
+                    <section className="card logAnalyticsCard">
                         <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
                             <div>
                                 <div className="cardTitle" style={{ marginBottom: 4 }}>{analysis?.source.name ?? "Analise"}</div>
@@ -276,7 +276,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     {analysis ? (
                         <>
                             {!analysis.files.length ? (
-                                <section className="card" style={{ borderColor: "rgba(255,209,102,.34)", minWidth: 0 }}>
+                                <section className="card logAnalyticsCard" style={{ borderColor: "rgba(255,209,102,.34)" }}>
                                     <div className="cardTitle">Nenhum arquivo compativel encontrado</div>
                                     <div className="muted">
                                         Confira o caminho da pasta e o prefixo da fonte. Este parser procura arquivos diarios no formato
@@ -284,7 +284,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                     </div>
                                 </section>
                             ) : analysis.kpis.executions === 0 ? (
-                                <section className="card" style={{ borderColor: "rgba(255,209,102,.34)", minWidth: 0 }}>
+                                <section className="card logAnalyticsCard" style={{ borderColor: "rgba(255,209,102,.34)" }}>
                                     <div className="cardTitle">Arquivos lidos, mas sem execucoes reconhecidas</div>
                                     <div className="muted">
                                         Os arquivos foram encontrados, mas o parser {parserMeta[analysis.source.parser].label} nao identificou {parserMeta[analysis.source.parser].expectedSummary} neles.
@@ -300,10 +300,10 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 <Kpi label="Duracao media" value={formatDuration(analysis.kpis.averageDurationSeconds)} icon={<FileText size={18} />} />
                             </section>
 
-                            <section className="card">
+                            <section className="card logAnalyticsCard">
                                 <div className="cardTitle">Ultimas execucoes</div>
                                 <div className="tableWrap">
-                                    <table className="table">
+                                    <table className="table logAnalyticsTable">
                                         <thead>
                                             <tr>
                                                 <th>Inicio</th>
@@ -352,7 +352,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 </div>
                             </section>
 
-                            <section className="card">
+                            <section className="card logAnalyticsCard">
                                 <div className="cardTitle">Padroes de erro</div>
                                 <div style={{ display: "grid", gap: 8 }}>
                                     {analysis.errorPatterns.map((pattern) => (

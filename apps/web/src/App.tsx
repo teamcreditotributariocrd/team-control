@@ -343,8 +343,13 @@ export default function App() {
         background:rgba(16,20,25,.96);
         border-right:1px solid var(--line);
         backdrop-filter:none;
+        flex:none;
+        overflow:hidden;
+        transition:width .18s ease, padding .18s ease;
       }
-      .brand{gap:12px;padding:2px 4px 16px;border-bottom:1px solid var(--line)}
+      .brand{gap:10px;padding:2px 4px 16px;border-bottom:1px solid var(--line);justify-content:space-between}
+      .brandCore{display:flex;align-items:center;gap:12px;min-width:0}
+      .brandText{min-width:0;white-space:nowrap}
       .dot{
         width:38px;
         height:38px;
@@ -358,6 +363,20 @@ export default function App() {
       }
       .brandTitle{font-size:16px;font-weight:900;letter-spacing:0}
       .brandSub{font-size:11px;color:#7D8593;text-transform:uppercase;letter-spacing:.08em}
+      .sidebarToggle{
+        width:34px;
+        height:34px;
+        flex:none;
+        display:inline-flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.11);
+        color:#AAB3C2;
+        background:transparent;
+        cursor:pointer;
+      }
+      .sidebarToggle:hover{color:var(--text);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.18)}
       .nav{gap:5px;margin-top:0}
       .navItem{
         min-height:42px;
@@ -387,6 +406,32 @@ export default function App() {
         border:1px solid var(--line);
         border-radius:8px;
         background:rgba(255,255,255,.025);
+      }
+      .sidebar.collapsed{
+        width:82px;
+        padding-inline:12px;
+        gap:14px;
+      }
+      .sidebar.collapsed .brand{
+        gap:10px;
+        padding-inline:0;
+        flex-direction:column;
+      }
+      .sidebar.collapsed .brandText,
+      .sidebar.collapsed .navLabel,
+      .sidebar.collapsed .sessionMeta,
+      .sidebar.collapsed .logoutLabel{display:none}
+      .sidebar.collapsed .brandCore{justify-content:center}
+      .sidebar.collapsed .navItem{
+        width:100%;
+        justify-content:center;
+        padding-inline:0;
+      }
+      .sidebar.collapsed .sideFooter{padding:8px}
+      .sidebar.collapsed .logoutBtn{
+        margin-top:0;
+        min-width:0;
+        padding-inline:0;
       }
       .sessionRole{
         display:inline-flex;
@@ -422,6 +467,8 @@ export default function App() {
         max-width:1500px;
         margin:0 auto;
         padding:26px;
+        min-width:0;
+        overflow-x:hidden;
       }
       .pageHeader{
         align-items:center;
@@ -559,6 +606,18 @@ export default function App() {
         border-radius:8px;
         background:rgba(255,255,255,.02);
       }
+      .logAnalyticsLayout{
+        display:grid;
+        grid-template-columns:minmax(300px, 360px) minmax(0, 1fr);
+        gap:14px;
+        align-items:start;
+        min-width:0;
+      }
+      .logAnalyticsColumn{display:grid;gap:14px;min-width:0}
+      .logAnalyticsCard{min-width:0;overflow:hidden}
+      .logAnalyticsSourceHeader{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+      .logAnalyticsSourceHeader .strong{min-width:0;overflow-wrap:anywhere}
+      .logAnalyticsTable{min-width:720px}
       .login{
         background:
           linear-gradient(180deg, rgba(11,13,16,.96), rgba(14,17,22,.98)),
@@ -637,6 +696,9 @@ export default function App() {
         .grid2{grid-template-columns:1fr}
         .row2{grid-template-columns:1fr}
         .sidebar{display:none}
+      }
+      @media(max-width:1380px){
+        .logAnalyticsLayout{grid-template-columns:1fr}
       }
       @media(max-width:760px){
         .content{padding:16px}

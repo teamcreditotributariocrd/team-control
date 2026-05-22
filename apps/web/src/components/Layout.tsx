@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
+import { BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
 import { cls } from "../lib/utils";
 import type { Session } from "../lib/api";
 
@@ -20,6 +20,7 @@ export default function Layout({
     children: React.ReactNode;
 }) {
     const loc = useLocation();
+    const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.localStorage.getItem("team-control:sidebar-collapsed") === "true");
     const nav = [
         { to: "/me", label: "Meu painel", icon: UserRound, show: true },
         { to: "/dashboard", label: "Dashboard do time", icon: BarChart3, show: session.role === "admin" },
@@ -33,39 +34,61 @@ export default function Layout({
         { to: "/requisitions", label: "Requisicoes", icon: ClipboardList, show: true },
     ].filter((n) => n.show);
 
+    useEffect(() => {
+        window.localStorage.setItem("team-control:sidebar-collapsed", String(sidebarCollapsed));
+    }, [sidebarCollapsed]);
+
     return (
-        <div className="app">
-            <aside className="sidebar">
+        <div className={cls("app", sidebarCollapsed && "sidebarCollapsed")}>
+            <aside className={cls("sidebar", sidebarCollapsed && "collapsed")}>
                 <div className="brand">
-                    <div className="dot">
-                        <LayoutDashboard size={16} />
+                    <div className="brandCore">
+                        <div className="dot">
+                            <LayoutDashboard size={16} />
+                        </div>
+                        <div className="brandText">
+                            <div className="brandTitle">Team Control</div>
+                            <div className="brandSub">COTIN / TFS</div>
+                        </div>
                     </div>
-                    <div>
-                        <div className="brandTitle">Team Control</div>
-                        <div className="brandSub">COTIN / TFS</div>
-                    </div>
+                    <button
+                        type="button"
+                        className="sidebarToggle"
+                        onClick={() => setSidebarCollapsed((current) => !current)}
+                        aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                        title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
+                    >
+                        {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+                    </button>
                 </div>
 
                 <nav className="nav">
                     {nav.map((n) => {
                         const Icon = n.icon;
                         return (
-                            <Link key={n.to} to={n.to} className={cls("navItem", isActiveRoute(n.to, loc.pathname) && "active")}>
+                            <Link
+                                key={n.to}
+                                to={n.to}
+                                className={cls("navItem", isActiveRoute(n.to, loc.pathname) && "active")}
+                                title={sidebarCollapsed ? n.label : undefined}
+                            >
                                 <Icon size={18} />
-                                <span>{n.label}</span>
+                                <span className="navLabel">{n.label}</span>
                             </Link>
                         );
                     })}
                 </nav>
 
                 <div className="sideFooter">
-                    <div className="muted small">Sessao</div>
-                    <div className="small mono">{session.uniqueName || "-"}</div>
-                    <div className="sessionRole">{session.role.toUpperCase()}</div>
+                    <div className="sessionMeta">
+                        <div className="muted small">Sessao</div>
+                        <div className="small mono">{session.uniqueName || "-"}</div>
+                        <div className="sessionRole">{session.role.toUpperCase()}</div>
+                    </div>
 
-                    <button className="btn ghost logoutBtn" onClick={onLogout}>
+                    <button className="btn ghost logoutBtn" onClick={onLogout} title="Sair" aria-label="Sair">
                         <LogOut size={16} />
-                        <span>Sair</span>
+                        <span className="logoutLabel">Sair</span>
                     </button>
                 </div>
             </aside>
