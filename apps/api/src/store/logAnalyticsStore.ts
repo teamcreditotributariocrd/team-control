@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-export type LogParser = "CREDTRIB_BAIXA_AUTOMATICA";
+export type LogParser = "CREDTRIB_BAIXA_AUTOMATICA" | "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO";
 
 export type LogSource = {
     id: string;

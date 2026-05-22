@@ -22,6 +22,17 @@ const defaultDraft: SourceDraft = {
     parser: "CREDTRIB_BAIXA_AUTOMATICA",
 };
 
+const parserMeta: Record<LogParser, { label: string; expectedSummary: string }> = {
+    CREDTRIB_BAIXA_AUTOMATICA: {
+        label: "Baixa automatica CREDTRIB",
+        expectedSummary: "resumo da baixa automatica",
+    },
+    CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO: {
+        label: "Atualizar local contencioso",
+        expectedSummary: "execucoes de atualizacao de local com etapas de parcelamento e processo",
+    },
+};
+
 export default function LogAnalyticsPage({ session }: { session: Session }) {
     const [sources, setSources] = useState<LogSource[]>([]);
     const [selectedId, setSelectedId] = useState("");
@@ -212,7 +223,9 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 <div>
                                     <div className="label">Parser</div>
                                     <select className="input" value={draft.parser} onChange={(e) => setDraft((current) => ({ ...current, parser: e.target.value as LogParser }))}>
-                                        <option value="CREDTRIB_BAIXA_AUTOMATICA">Baixa automatica CREDTRIB</option>
+                                        {Object.entries(parserMeta).map(([value, meta]) => (
+                                            <option key={value} value={value}>{meta.label}</option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -221,7 +234,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                             <div className="label" style={{ marginTop: 10 }}>Prefixo dos arquivos</div>
                             <input className="input mono" value={draft.filePrefix} onChange={(e) => setDraft((current) => ({ ...current, filePrefix: e.target.value }))} placeholder="CREDTRIBBaixaAutomatica.exe" />
                             <div className="muted small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>
-                                O parser atual procura arquivos no formato <span className="mono">{draft.filePrefix.trim() || "prefixo"}.YYYYMMDD.log</span> e espera o resumo da baixa automatica.
+                                O parser atual procura arquivos no formato <span className="mono">{draft.filePrefix.trim() || "prefixo"}.YYYYMMDD.log</span> e espera {parserMeta[draft.parser].expectedSummary}.
                             </div>
                             <div className="label" style={{ marginTop: 10 }}>O que significa</div>
                             <textarea className="input" rows={3} value={draft.description} onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))} />
@@ -274,14 +287,14 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 <section className="card" style={{ borderColor: "rgba(255,209,102,.34)", minWidth: 0 }}>
                                     <div className="cardTitle">Arquivos lidos, mas sem execucoes reconhecidas</div>
                                     <div className="muted">
-                                        Os arquivos foram encontrados, mas o parser Baixa automatica CREDTRIB nao identificou blocos de resumo neles.
+                                        Os arquivos foram encontrados, mas o parser {parserMeta[analysis.source.parser].label} nao identificou {parserMeta[analysis.source.parser].expectedSummary} neles.
                                         Essa fonte precisa usar logs com o mesmo formato ou ganhar um parser proprio.
                                     </div>
                                 </section>
                             ) : null}
                             <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 10 }}>
                                 <Kpi label="Execucoes" value={analysis.kpis.executions} icon={<ServerCog size={18} />} />
-                                <Kpi label="DAEMS baixados" value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} />
+                                <Kpi label={isAtualizarLocal(analysis) ? "Atualizacoes Sydle" : "DAEMS baixados"} value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} />
                                 <Kpi label="Erros" value={analysis.kpis.errorsFound} icon={<TriangleAlert size={18} />} bad={analysis.kpis.errorsFound > 0} />
                                 <Kpi label="Execucoes com erro" value={analysis.kpis.runsWithErrors} icon={<TriangleAlert size={18} />} bad={analysis.kpis.runsWithErrors > 0} />
                                 <Kpi label="Duracao media" value={formatDuration(analysis.kpis.averageDurationSeconds)} icon={<FileText size={18} />} />
@@ -295,9 +308,20 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                             <tr>
                                                 <th>Inicio</th>
                                                 <th>Duracao</th>
-                                                <th>Emitidos</th>
-                                                <th>Atualizados pago</th>
-                                                <th>Baixados</th>
+                                                {isAtualizarLocal(analysis) ? (
+                                                    <>
+                                                        <th>Parcelamentos consultados</th>
+                                                        <th>Processos consultados</th>
+                                                        <th>Atualiz. parcelamento</th>
+                                                        <th>Atualiz. processo</th>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <th>Emitidos</th>
+                                                        <th>Atualizados pago</th>
+                                                        <th>Baixados</th>
+                                                    </>
+                                                )}
                                                 <th>Erros</th>
                                             </tr>
                                         </thead>
@@ -306,9 +330,20 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                                 <tr key={`${run.file}-${run.startedAt}`}>
                                                     <td className="mono">{formatDateTime(run.startedAt)}</td>
                                                     <td className="mono">{formatDuration(run.durationSeconds ?? 0)}</td>
-                                                    <td>{run.emittedProcessed}</td>
-                                                    <td>{run.updatedToPaid}</td>
-                                                    <td>{run.loweredSuccess}</td>
+                                                    {isAtualizarLocal(analysis) ? (
+                                                        <>
+                                                            <td>{run.consultedInstallments ?? 0}</td>
+                                                            <td>{run.consultedProcesses ?? 0}</td>
+                                                            <td>{run.updatedInstallments ?? 0}</td>
+                                                            <td>{run.updatedProcesses ?? 0}</td>
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <td>{run.emittedProcessed}</td>
+                                                            <td>{run.updatedToPaid}</td>
+                                                            <td>{run.loweredSuccess}</td>
+                                                        </>
+                                                    )}
                                                     <td>{run.errorsFound ? <span className="pill bad">{run.errorsFound}</span> : <span className="pill ok">0</span>}</td>
                                                 </tr>
                                             ))}
@@ -356,6 +391,10 @@ function upsertSource(sources: LogSource[], saved: LogSource) {
     const exists = sources.some((source) => source.id === saved.id);
     const next = exists ? sources.map((source) => source.id === saved.id ? saved : source) : [...sources, saved];
     return next.sort((a, b) => a.system.localeCompare(b.system) || a.name.localeCompare(b.name));
+}
+
+function isAtualizarLocal(analysis: LogAnalyticsAnalysis) {
+    return analysis.source.parser === "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO";
 }
 
 function Kpi({ label, value, icon, bad = false }: { label: string; value: React.ReactNode; icon: React.ReactNode; bad?: boolean }) {

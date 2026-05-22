@@ -10,7 +10,7 @@ const LogSourceSchema = z.object({
     description: z.string().trim().max(600),
     path: z.string().trim().min(1).max(600),
     filePrefix: z.string().trim().min(1).max(180),
-    parser: z.literal("CREDTRIB_BAIXA_AUTOMATICA"),
+    parser: z.enum(["CREDTRIB_BAIXA_AUTOMATICA", "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO"]),
 });
 
 function requireReader(req: any, reply: any) {

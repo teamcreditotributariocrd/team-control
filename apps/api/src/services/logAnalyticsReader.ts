@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { LogSource } from "../store/logAnalyticsStore.js";
 
-export type BaixaExecution = {
+export type LogExecution = {
     file: string;
     startedAt: string;
     finishedAt: string | null;
@@ -12,6 +12,12 @@ export type BaixaExecution = {
     paidProcessed: number;
     loweredSuccess: number;
     errorsFound: number;
+    consultedInstallments?: number;
+    consultedProcesses?: number;
+    updatedInstallments?: number;
+    updatedProcesses?: number;
+    installmentDurationSeconds?: number | null;
+    processDurationSeconds?: number | null;
 };
 
 type LogError = {
@@ -52,9 +58,9 @@ function metric(line: string, label: string) {
 }
 
 function parseBaixaFile(file: string, content: string) {
-    const executions: BaixaExecution[] = [];
+    const executions: LogExecution[] = [];
     const errors: LogError[] = [];
-    let current: BaixaExecution | null = null;
+    let current: LogExecution | null = null;
 
     for (const rawLine of content.split(/\r?\n/)) {
         const parsed = rawLine.match(/^"([^"]+)"(.*)$/);
@@ -107,6 +113,98 @@ function parseBaixaFile(file: string, content: string) {
     return { executions, errors };
 }
 
+function parseAtualizarLocalContenciosoFile(file: string, content: string) {
+    const executions: LogExecution[] = [];
+    const errors: LogError[] = [];
+    let stage: "INSTALLMENT" | "PROCESS" | null = null;
+    let current: LogExecution | null = null;
+
+    function run(at: string): LogExecution {
+        return {
+            file,
+            startedAt: at,
+            finishedAt: null,
+            durationSeconds: null,
+            emittedProcessed: 0,
+            updatedToPaid: 0,
+            paidProcessed: 0,
+            loweredSuccess: 0,
+            errorsFound: 0,
+            consultedInstallments: 0,
+            consultedProcesses: 0,
+            updatedInstallments: 0,
+            updatedProcesses: 0,
+            installmentDurationSeconds: null,
+            processDurationSeconds: null,
+        };
+    }
+
+    function pushCurrent() {
+        if (!current) return;
+        current.emittedProcessed = current.consultedInstallments ?? 0;
+        current.paidProcessed = current.consultedProcesses ?? 0;
+        current.updatedToPaid = current.updatedInstallments ?? 0;
+        current.loweredSuccess = (current.updatedInstallments ?? 0) + (current.updatedProcesses ?? 0);
+        executions.push(current);
+        current = null;
+        stage = null;
+    }
+
+    for (const rawLine of content.split(/\r?\n/)) {
+        const parsed = rawLine.match(/^"([^"]+)"(.*)$/);
+        if (!parsed) continue;
+        const at = asDateKey(parsed[1]);
+        const line = parsed[2].trim();
+
+        if (line.includes("(*)") && line.includes("IN") && line.includes("PROCESSAMENTO") && line.includes("LOCAL:")) {
+            pushCurrent();
+            current = run(at);
+            continue;
+        }
+        if (!current) continue;
+
+        if (line.includes("RESPONSAVEL DE PARCELAMENTO") && line.includes("IN")) stage = "INSTALLMENT";
+        if (line.includes("RESPONSAVEL DE PROCESSO") && line.includes("IN")) stage = "PROCESS";
+
+        const installments = line.match(/Consulta de Parcelamentos:\s*TOTAL\s*-\s*(\d+)/i);
+        if (installments) current.consultedInstallments = asNumber(installments[1]);
+        const processes = line.match(/Consulta de Processos:\s*TOTAL\s*-\s*(\d+)/i);
+        if (processes) current.consultedProcesses = asNumber(processes[1]);
+
+        if (/^Atualizando .+ na sydle/i.test(line)) {
+            if (stage === "INSTALLMENT") current.updatedInstallments = (current.updatedInstallments ?? 0) + 1;
+            if (stage === "PROCESS") current.updatedProcesses = (current.updatedProcesses ?? 0) + 1;
+        }
+
+        if (line.includes("(*) ERRO")) {
+            current.errorsFound += 1;
+            errors.push({ at, file, message: line, signature: signature(line) });
+        }
+        if (line.startsWith("-> Message:") && errors.length) {
+            const last = errors[errors.length - 1];
+            last.message = `${last.message} ${line}`;
+            last.signature = signature(line);
+        }
+
+        const stageDuration = line.match(/FIM DO PROCESSAMENTO DE ATUALIZAR LOCAL E RESPONSAVEL DE (PARCELAMENTO|PROCESSO)\.\s*Dura.+?:\s*(\d{2}:\d{2}:\d{2})/i);
+        if (stageDuration) {
+            const seconds = durationSeconds(stageDuration[2]);
+            if (stageDuration[1].toUpperCase() === "PARCELAMENTO") current.installmentDurationSeconds = seconds;
+            if (stageDuration[1].toUpperCase() === "PROCESSO") current.processDurationSeconds = seconds;
+        }
+
+        const totalDuration = line.match(/\(\*\)\s*FIM DO PROCESSAMENTO.+?Dura.+?:\s*(\d{2}:\d{2}:\d{2})/i);
+        if (totalDuration) {
+            current.finishedAt = at;
+            current.durationSeconds = durationSeconds(totalDuration[1]);
+            pushCurrent();
+        }
+    }
+
+    pushCurrent();
+    return { executions, errors };
+}
+
 function logDate(name: string, prefix: string) {
     const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const match = name.match(new RegExp(`^${escaped}\\.(\\d{8})\\.log$`, "i"));
@@ -126,7 +224,6 @@ function groupErrors(errors: LogError[]) {
 }
 
 export async function analyzeLogSource(source: LogSource, days = 14) {
-    if (source.parser !== "CREDTRIB_BAIXA_AUTOMATICA") throw new Error(`Parser nao suportado: ${source.parser}`);
     const maxDays = Math.max(1, Math.min(Number(days) || 14, 31));
     const entries = await fs.promises.readdir(source.path, { withFileTypes: true });
     const files = entries
@@ -136,11 +233,16 @@ export async function analyzeLogSource(source: LogSource, days = 14) {
         .sort((a, b) => b.date.localeCompare(a.date))
         .slice(0, maxDays);
 
-    const executions: BaixaExecution[] = [];
+    const executions: LogExecution[] = [];
     const errors: LogError[] = [];
     for (const file of files) {
         const content = await fs.promises.readFile(path.join(source.path, file.name), "utf-8");
-        const parsed = parseBaixaFile(file.name, content);
+        const parsed = source.parser === "CREDTRIB_BAIXA_AUTOMATICA"
+            ? parseBaixaFile(file.name, content)
+            : source.parser === "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO"
+                ? parseAtualizarLocalContenciosoFile(file.name, content)
+                : null;
+        if (!parsed) throw new Error(`Parser nao suportado: ${source.parser}`);
         executions.push(...parsed.executions);
         errors.push(...parsed.errors);
     }

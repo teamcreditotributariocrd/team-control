@@ -180,7 +180,7 @@ export type CalendarEvent = {
     updatedAt: string;
 };
 
-export type LogParser = "CREDTRIB_BAIXA_AUTOMATICA";
+export type LogParser = "CREDTRIB_BAIXA_AUTOMATICA" | "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO";
 
 export type LogSource = {
     id: string;
@@ -216,6 +216,12 @@ export type LogAnalyticsAnalysis = {
         paidProcessed: number;
         loweredSuccess: number;
         errorsFound: number;
+        consultedInstallments?: number;
+        consultedProcesses?: number;
+        updatedInstallments?: number;
+        updatedProcesses?: number;
+        installmentDurationSeconds?: number | null;
+        processDurationSeconds?: number | null;
     }>;
     daily: Array<{
         day: string;
