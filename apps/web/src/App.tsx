@@ -364,19 +364,27 @@ export default function App() {
       .brandTitle{font-size:16px;font-weight:900;letter-spacing:0}
       .brandSub{font-size:11px;color:#7D8593;text-transform:uppercase;letter-spacing:.08em}
       .sidebarToggle{
-        width:34px;
-        height:34px;
+        min-width:44px;
+        min-height:44px;
+        padding:0 12px;
         flex:none;
         display:inline-flex;
         align-items:center;
         justify-content:center;
+        gap:8px;
         border-radius:8px;
-        border:1px solid rgba(255,255,255,.11);
-        color:#AAB3C2;
-        background:transparent;
+        border:1px solid rgba(76,201,166,.24);
+        color:#E5FBF4;
+        background:rgba(76,201,166,.10);
         cursor:pointer;
+        font-weight:850;
       }
-      .sidebarToggle:hover{color:var(--text);background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.18)}
+      .sidebarToggle:hover{
+        color:#07110E;
+        border-color:rgba(76,201,166,.58);
+        background:linear-gradient(135deg, #6EE7C4, #8DB7FF);
+      }
+      .sidebarToggleLabel{font-size:12px;white-space:nowrap}
       .nav{gap:5px;margin-top:0}
       .navItem{
         min-height:42px;
@@ -420,8 +428,15 @@ export default function App() {
       .sidebar.collapsed .brandText,
       .sidebar.collapsed .navLabel,
       .sidebar.collapsed .sessionMeta,
-      .sidebar.collapsed .logoutLabel{display:none}
+      .sidebar.collapsed .logoutLabel,
+      .sidebar.collapsed .sidebarToggleLabel{display:none}
       .sidebar.collapsed .brandCore{justify-content:center}
+      .sidebar.collapsed .sidebarToggle{
+        width:48px;
+        min-width:48px;
+        min-height:48px;
+        padding:0;
+      }
       .sidebar.collapsed .navItem{
         width:100%;
         justify-content:center;
@@ -618,6 +633,114 @@ export default function App() {
       .logAnalyticsSourceHeader{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
       .logAnalyticsSourceHeader .strong{min-width:0;overflow-wrap:anywhere}
       .logAnalyticsTable{min-width:720px}
+      .logAnalyticsHero{
+        display:grid;
+        grid-template-columns:minmax(0, 1.35fr) minmax(250px, .65fr);
+        gap:14px;
+        align-items:stretch;
+      }
+      .logAnalyticsHealth{
+        min-height:174px;
+        padding:18px;
+        display:flex;
+        flex-direction:column;
+        gap:14px;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.10);
+        background:
+          linear-gradient(135deg, rgba(76,201,166,.14), rgba(122,167,255,.08)),
+          #11161C;
+      }
+      .logAnalyticsHealth.good{border-color:rgba(50,213,131,.34)}
+      .logAnalyticsHealth.warn{border-color:rgba(253,176,34,.34)}
+      .logAnalyticsHealth.bad{border-color:rgba(249,112,102,.34)}
+      .logAnalyticsHealthTop{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+      .logAnalyticsHealthBadge{
+        width:48px;
+        height:48px;
+        flex:none;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.11);
+        background:rgba(255,255,255,.05);
+      }
+      .logAnalyticsHealth.good .logAnalyticsHealthBadge{color:#B7F7CF;background:rgba(50,213,131,.12);border-color:rgba(50,213,131,.28)}
+      .logAnalyticsHealth.warn .logAnalyticsHealthBadge{color:#FEDF89;background:rgba(253,176,34,.12);border-color:rgba(253,176,34,.28)}
+      .logAnalyticsHealth.bad .logAnalyticsHealthBadge{color:#FECDCA;background:rgba(249,112,102,.12);border-color:rgba(249,112,102,.28)}
+      .logAnalyticsHealthTitle{font-size:22px;line-height:1.15;font-weight:900;letter-spacing:0}
+      .logAnalyticsHealthFacts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:auto}
+      .logAnalyticsFact{
+        min-width:0;
+        padding:10px;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.08);
+        background:rgba(0,0,0,.16);
+      }
+      .logAnalyticsFactValue{margin-top:5px;font-size:16px;font-weight:900;line-height:1.2;overflow-wrap:anywhere}
+      .logAnalyticsMetrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(175px,1fr));gap:10px}
+      .logAnalyticsKpi{
+        min-width:0;
+        min-height:122px;
+        display:flex;
+        flex-direction:column;
+        justify-content:space-between;
+        gap:10px;
+      }
+      .logAnalyticsKpiTop{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+      .logAnalyticsKpiIcon{
+        width:34px;
+        height:34px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        flex:none;
+        border-radius:8px;
+        color:#D7E4FF;
+        border:1px solid rgba(122,167,255,.20);
+        background:rgba(122,167,255,.10);
+      }
+      .logAnalyticsKpi.bad .logAnalyticsKpiIcon{color:#FECDCA;border-color:rgba(249,112,102,.28);background:rgba(249,112,102,.12)}
+      .logAnalyticsKpi.good .logAnalyticsKpiIcon{color:#B7F7CF;border-color:rgba(50,213,131,.28);background:rgba(50,213,131,.12)}
+      .logAnalyticsKpiNote{color:var(--muted);font-size:12px;line-height:1.35}
+      .logAnalyticsSplit{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:14px;min-width:0}
+      .logAnalyticsDaily{display:grid;gap:8px}
+      .logAnalyticsDailyRow{
+        display:grid;
+        grid-template-columns:minmax(88px,.72fr) minmax(0,1fr) auto;
+        gap:10px;
+        align-items:center;
+        min-width:0;
+        padding:10px;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.08);
+        background:rgba(255,255,255,.025);
+      }
+      .logAnalyticsDailyMeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
+      .logAnalyticsPulse{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
+      .logAnalyticsPulse > span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#6EE7C4,#8DB7FF)}
+      .logAnalyticsSignalList{display:grid;gap:8px}
+      .logAnalyticsSignal{
+        display:flex;
+        align-items:flex-start;
+        gap:10px;
+        padding:11px;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.08);
+        background:rgba(255,255,255,.025);
+      }
+      .logAnalyticsSignalIcon{
+        width:30px;
+        height:30px;
+        flex:none;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.10);
+        background:rgba(255,255,255,.045);
+      }
       .login{
         background:
           linear-gradient(180deg, rgba(11,13,16,.96), rgba(14,17,22,.98)),
@@ -700,6 +823,10 @@ export default function App() {
       @media(max-width:1380px){
         .logAnalyticsLayout{grid-template-columns:1fr}
       }
+      @media(max-width:1160px){
+        .logAnalyticsHero,
+        .logAnalyticsSplit{grid-template-columns:1fr}
+      }
       @media(max-width:760px){
         .content{padding:16px}
         .topbar{height:auto;min-height:64px;padding:14px 16px;align-items:flex-start;gap:10px}
@@ -711,6 +838,8 @@ export default function App() {
         .grid4{grid-template-columns:1fr}
         .kpi{font-size:26px}
         .card{padding:14px}
+        .logAnalyticsHealthFacts{grid-template-columns:1fr}
+        .logAnalyticsDailyRow{grid-template-columns:1fr}
       }
     `;
     const tag = document.createElement("style");

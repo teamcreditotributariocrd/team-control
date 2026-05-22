@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
+import { ArrowLeftToLine, ArrowRightToLine, BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
 import { cls } from "../lib/utils";
 import type { Session } from "../lib/api";
 
@@ -58,7 +58,8 @@ export default function Layout({
                         aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
                         title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
                     >
-                        {sidebarCollapsed ? <PanelLeftOpen size={17} /> : <PanelLeftClose size={17} />}
+                        {sidebarCollapsed ? <ArrowRightToLine size={22} /> : <ArrowLeftToLine size={22} />}
+                        <span className="sidebarToggleLabel">{sidebarCollapsed ? "Abrir" : "Recolher"}</span>
                     </button>
                 </div>
 

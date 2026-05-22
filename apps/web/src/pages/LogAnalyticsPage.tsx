@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, FileText, FolderSearch, RefreshCw, Save, ServerCog, Trash2, TriangleAlert } from "lucide-react";
+import { Activity, BarChart3, CheckCircle2, Clock3, FileText, FolderSearch, HeartPulse, RefreshCw, Save, ServerCog, ShieldAlert, ShieldCheck, Trash2, TriangleAlert } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 import type { LogAnalyticsAnalysis, LogParser, LogSource } from "../types";
 
@@ -255,22 +255,33 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                 </aside>
 
                 <main className="logAnalyticsColumn">
-                    <section className="card logAnalyticsCard">
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
-                            <div>
-                                <div className="cardTitle" style={{ marginBottom: 4 }}>{analysis?.source.name ?? "Analise"}</div>
-                                <div className="muted small">{analysis?.source.description ?? "Selecione uma fonte para ler os logs."}</div>
+                    <section className="logAnalyticsHero">
+                        <div className="card logAnalyticsCard">
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
+                                <div>
+                                    <div className="label">Fonte em leitura</div>
+                                    <div className="h1" style={{ marginTop: 5 }}>{analysis?.source.name ?? "Selecione uma fonte"}</div>
+                                    <div className="muted" style={{ marginTop: 7 }}>{analysis?.source.description ?? "Leia os arquivos de uma fonte para ver volume, saude e erros reconhecidos pelo parser."}</div>
+                                </div>
+                                <span className="pill small">
+                                    <FolderSearch size={14} />
+                                    {analysis?.files.length ?? 0} arquivo(s)
+                                </span>
                             </div>
-                            <span className="pill small">
-                                <FolderSearch size={14} />
-                                {analysis?.files.length ?? 0} arquivo(s) lido(s)
-                            </span>
+                            {analysis ? (
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 16 }}>
+                                    <span className="pill">{parserMeta[analysis.source.parser].label}</span>
+                                    <span className="pill">Janela: {days} dias</span>
+                                    <span className="pill mono">{analysis.source.filePrefix}</span>
+                                </div>
+                            ) : selectedId ? (
+                                <div className="muted small" style={{ marginTop: 12 }}>
+                                    Selecionar uma fonte inicia a leitura. Use Ler logs para reler os arquivos da janela escolhida.
+                                </div>
+                            ) : null}
                         </div>
-                        {selectedId ? (
-                            <div className="muted small" style={{ marginTop: 10 }}>
-                                Selecionar uma fonte inicia a leitura. Use Ler logs para reler os arquivos da janela escolhida.
-                            </div>
-                        ) : null}
+
+                        <HealthPanel analysis={analysis} />
                     </section>
 
                     {analysis ? (
@@ -292,12 +303,17 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                     </div>
                                 </section>
                             ) : null}
-                            <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(165px, 1fr))", gap: 10 }}>
-                                <Kpi label="Execucoes" value={analysis.kpis.executions} icon={<ServerCog size={18} />} />
-                                <Kpi label={isAtualizarLocal(analysis) ? "Atualizacoes Sydle" : "DAEMS baixados"} value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} />
-                                <Kpi label="Erros" value={analysis.kpis.errorsFound} icon={<TriangleAlert size={18} />} bad={analysis.kpis.errorsFound > 0} />
-                                <Kpi label="Execucoes com erro" value={analysis.kpis.runsWithErrors} icon={<TriangleAlert size={18} />} bad={analysis.kpis.runsWithErrors > 0} />
-                                <Kpi label="Duracao media" value={formatDuration(analysis.kpis.averageDurationSeconds)} icon={<FileText size={18} />} />
+                            <section className="logAnalyticsMetrics">
+                                <Kpi label="Execucoes" value={analysis.kpis.executions} icon={<ServerCog size={18} />} note={`${healthyRuns(analysis)} sem erro na janela`} good={healthyRuns(analysis) === analysis.kpis.executions && analysis.kpis.executions > 0} />
+                                <Kpi label={isAtualizarLocal(analysis) ? "Atualizacoes Sydle" : "DAEMS baixados"} value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} note={isAtualizarLocal(analysis) ? "Atualizacoes concluidas pelo parser" : "Baixas reconhecidas no servico"} />
+                                <Kpi label="Erros encontrados" value={analysis.kpis.errorsFound} icon={<TriangleAlert size={18} />} note={analysis.kpis.errorsFound ? `${analysis.errorPatterns.length} padrao(oes) agrupado(s)` : "Nenhum erro na leitura"} bad={analysis.kpis.errorsFound > 0} good={analysis.kpis.errorsFound === 0} />
+                                <Kpi label="Taxa sem erro" value={formatPercent(successRate(analysis))} icon={<ShieldCheck size={18} />} note={`${analysis.kpis.runsWithErrors} execucao(oes) com erro`} bad={successRate(analysis) < 90} good={successRate(analysis) === 100} />
+                                <Kpi label="Duracao media" value={formatDuration(analysis.kpis.averageDurationSeconds)} icon={<Clock3 size={18} />} note={analysis.kpis.lastRunAt ? `Ultima: ${formatDateTime(analysis.kpis.lastRunAt)}` : "Sem execucao reconhecida"} />
+                            </section>
+
+                            <section className="logAnalyticsSplit">
+                                <DailyHealth analysis={analysis} />
+                                <OperationalSignals analysis={analysis} />
                             </section>
 
                             <section className="card logAnalyticsCard">
@@ -397,16 +413,148 @@ function isAtualizarLocal(analysis: LogAnalyticsAnalysis) {
     return analysis.source.parser === "CREDTRIB_ATUALIZAR_LOCAL_CONTENCIOSO";
 }
 
-function Kpi({ label, value, icon, bad = false }: { label: string; value: React.ReactNode; icon: React.ReactNode; bad?: boolean }) {
+function HealthPanel({ analysis }: { analysis: LogAnalyticsAnalysis | null }) {
+    const health = healthSummary(analysis);
+    const Icon = health.tone === "good" ? ShieldCheck : health.tone === "bad" ? ShieldAlert : HeartPulse;
+
     return (
-        <div className="card" style={{ borderColor: bad ? "rgba(255,92,122,.34)" : undefined, borderRadius: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, color: bad ? "#FF5C7A" : "inherit" }}>
-                <span className="muted small">{label}</span>
-                {icon}
+        <div className={`logAnalyticsHealth ${health.tone}`}>
+            <div className="logAnalyticsHealthTop">
+                <div>
+                    <div className="label">Saude do log</div>
+                    <div className="logAnalyticsHealthTitle" style={{ marginTop: 6 }}>{health.title}</div>
+                    <div className="muted" style={{ marginTop: 7 }}>{health.description}</div>
+                </div>
+                <div className="logAnalyticsHealthBadge">
+                    <Icon size={26} />
+                </div>
             </div>
-            <div className="kpi" style={{ marginTop: 8 }}>{value}</div>
+            <div className="logAnalyticsHealthFacts">
+                <HealthFact label="Ultima execucao" value={analysis?.kpis.lastRunAt ? formatDateTime(analysis.kpis.lastRunAt) : "-"} />
+                <HealthFact label="Arquivos lidos" value={analysis?.files.length ?? 0} />
+                <HealthFact label="Sem erro" value={analysis ? formatPercent(successRate(analysis)) : "-"} />
+            </div>
         </div>
     );
+}
+
+function HealthFact({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div className="logAnalyticsFact">
+            <div className="label">{label}</div>
+            <div className="logAnalyticsFactValue">{value}</div>
+        </div>
+    );
+}
+
+function DailyHealth({ analysis }: { analysis: LogAnalyticsAnalysis }) {
+    const rows = analysis.daily.slice(0, 7);
+    const maxExecutions = Math.max(...rows.map((row) => row.executions), 1);
+
+    return (
+        <section className="card logAnalyticsCard">
+            <div className="cardTitle">Saude por dia</div>
+            <div className="muted small" style={{ marginBottom: 12 }}>Dias recentes reconhecidos pelo parser na janela selecionada.</div>
+            <div className="logAnalyticsDaily">
+                {rows.map((row) => (
+                    <div key={row.day} className="logAnalyticsDailyRow">
+                        <div className="mono strong">{formatDay(row.day)}</div>
+                        <div>
+                            <div className="logAnalyticsDailyMeta small">
+                                <span>{row.executions} execucao(oes)</span>
+                                <span className={row.errors ? "pill bad" : "pill ok"}>{row.errors ? `${row.errors} erro(s)` : "Sem erro"}</span>
+                                <span className="muted">Media {formatDuration(row.averageDurationSeconds)}</span>
+                            </div>
+                            <div className="logAnalyticsPulse" style={{ marginTop: 8 }}>
+                                <span style={{ width: `${Math.max(12, Math.round((row.executions / maxExecutions) * 100))}%` }} />
+                            </div>
+                        </div>
+                        <span className={row.errors ? "pill warn" : "pill ok"}>{row.errors ? "Atencao" : "Saudavel"}</span>
+                    </div>
+                ))}
+                {!rows.length ? <div className="emptyState">Sem execucoes diarias reconhecidas.</div> : null}
+            </div>
+        </section>
+    );
+}
+
+function OperationalSignals({ analysis }: { analysis: LogAnalyticsAnalysis }) {
+    const signals = operationalSignals(analysis);
+
+    return (
+        <section className="card logAnalyticsCard">
+            <div className="cardTitle">Leitura operacional</div>
+            <div className="muted small" style={{ marginBottom: 12 }}>Resumo deterministico do que esta leitura sinaliza agora.</div>
+            <div className="logAnalyticsSignalList">
+                {signals.map((signal) => {
+                    const Icon = signal.tone === "good" ? CheckCircle2 : signal.tone === "bad" ? TriangleAlert : Activity;
+                    return (
+                        <div key={signal.title} className="logAnalyticsSignal">
+                            <div className="logAnalyticsSignalIcon">
+                                <Icon size={17} />
+                            </div>
+                            <div>
+                                <div className="strong">{signal.title}</div>
+                                <div className="muted small" style={{ marginTop: 4 }}>{signal.description}</div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </section>
+    );
+}
+
+function Kpi({ label, value, icon, note, bad = false, good = false }: { label: string; value: React.ReactNode; icon: React.ReactNode; note: string; bad?: boolean; good?: boolean }) {
+    return (
+        <div className={`card logAnalyticsKpi${bad ? " bad" : ""}${good ? " good" : ""}`} style={{ borderColor: bad ? "rgba(255,92,122,.34)" : good ? "rgba(50,213,131,.28)" : undefined, borderRadius: 8 }}>
+            <div className="logAnalyticsKpiTop" style={{ color: bad ? "#FF5C7A" : "inherit" }}>
+                <span className="label">{label}</span>
+                <span className="logAnalyticsKpiIcon">{icon}</span>
+            </div>
+            <div>
+                <div className="kpi">{value}</div>
+                <div className="logAnalyticsKpiNote" style={{ marginTop: 8 }}>{note}</div>
+            </div>
+        </div>
+    );
+}
+
+function healthSummary(analysis: LogAnalyticsAnalysis | null) {
+    if (!analysis) return { tone: "warn", title: "Aguardando leitura", description: "Selecione uma fonte para medir a saude do log." };
+    if (!analysis.files.length) return { tone: "bad", title: "Fonte sem arquivos", description: "Nenhum arquivo compativel foi encontrado nesta janela." };
+    if (!analysis.kpis.executions) return { tone: "warn", title: "Parser sem execucoes", description: "Arquivos foram lidos, mas o formato ainda nao gerou execucoes analisaveis." };
+    if (!analysis.kpis.errorsFound) return { tone: "good", title: "Saudavel na janela", description: "As execucoes reconhecidas nao trouxeram erros para esta fonte." };
+    if (successRate(analysis) >= 90) return { tone: "warn", title: "Estavel com alerta", description: "A maioria das execucoes passou sem erro, mas ha sinais para revisar." };
+    return { tone: "bad", title: "Precisa de atencao", description: "Erros aparecem em uma parcela relevante das execucoes lidas." };
+}
+
+function operationalSignals(analysis: LogAnalyticsAnalysis) {
+    const success = successRate(analysis);
+    const signals = [
+        analysis.kpis.errorsFound === 0
+            ? { tone: "good", title: "Janela sem erro", description: `${analysis.kpis.executions} execucao(oes) reconhecida(s) sem erro agrupado.` }
+            : { tone: success < 90 ? "bad" : "warn", title: "Erros encontrados", description: `${analysis.kpis.errorsFound} erro(s) em ${analysis.kpis.runsWithErrors} execucao(oes). O agrupamento ajuda a atacar repeticoes.` },
+        analysis.errorPatterns[0]
+            ? { tone: "warn", title: "Padrao mais frequente", description: `${analysis.errorPatterns[0].count} ocorrencia(s): ${analysis.errorPatterns[0].signature}` }
+            : { tone: "good", title: "Sem padrao de falha", description: "Nenhum padrao de erro foi agrupado nesta leitura." },
+        analysis.kpis.lastRunAt
+            ? { tone: "good", title: "Ultima execucao reconhecida", description: formatDateTime(analysis.kpis.lastRunAt) }
+            : { tone: "warn", title: "Sem execucao reconhecida", description: "Revise parser, prefixo e formato do arquivo." },
+    ];
+    return signals;
+}
+
+function healthyRuns(analysis: LogAnalyticsAnalysis) {
+    return Math.max(analysis.kpis.executions - analysis.kpis.runsWithErrors, 0);
+}
+
+function successRate(analysis: LogAnalyticsAnalysis) {
+    return analysis.kpis.executions ? Math.round((healthyRuns(analysis) / analysis.kpis.executions) * 100) : 0;
+}
+
+function formatPercent(value: number) {
+    return `${value}%`;
 }
 
 function formatDuration(seconds: number) {
@@ -419,4 +567,9 @@ function formatDuration(seconds: number) {
 function formatDateTime(value: string) {
     const dt = new Date(value);
     return Number.isNaN(dt.getTime()) ? value : dt.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "medium" });
+}
+
+function formatDay(value: string) {
+    const dt = new Date(`${value}T12:00:00`);
+    return Number.isNaN(dt.getTime()) ? value : dt.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
 }
