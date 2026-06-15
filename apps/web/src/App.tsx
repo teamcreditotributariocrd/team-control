@@ -17,6 +17,8 @@ import IncidentsPage from "./pages/IncidentsPage";
 import RequisitionsPage from "./pages/RequisitionsPage";
 import CalendarPage from "./pages/CalendarPage";
 import LogAnalyticsPage from "./pages/LogAnalyticsPage";
+import UstCalculationPage from "./pages/UstCalculationPage";
+import ParcelamentoHealthPage from "./pages/ParcelamentoHealthPage";
 
 export default function App() {
   const session = useSession();
@@ -364,27 +366,24 @@ export default function App() {
       .brandTitle{font-size:16px;font-weight:900;letter-spacing:0}
       .brandSub{font-size:11px;color:#7D8593;text-transform:uppercase;letter-spacing:.08em}
       .sidebarToggle{
-        min-width:44px;
-        min-height:44px;
-        padding:0 12px;
+        width:40px;
+        height:40px;
+        padding:0;
         flex:none;
         display:inline-flex;
         align-items:center;
         justify-content:center;
-        gap:8px;
         border-radius:8px;
-        border:1px solid rgba(76,201,166,.24);
-        color:#E5FBF4;
-        background:rgba(76,201,166,.10);
+        border:1px solid transparent;
+        color:#AAB3C2;
+        background:transparent;
         cursor:pointer;
-        font-weight:850;
       }
       .sidebarToggle:hover{
-        color:#07110E;
-        border-color:rgba(76,201,166,.58);
-        background:linear-gradient(135deg, #6EE7C4, #8DB7FF);
+        color:var(--text);
+        border-color:rgba(255,255,255,.12);
+        background:rgba(255,255,255,.05);
       }
-      .sidebarToggleLabel{font-size:12px;white-space:nowrap}
       .nav{gap:5px;margin-top:0}
       .navItem{
         min-height:42px;
@@ -428,13 +427,11 @@ export default function App() {
       .sidebar.collapsed .brandText,
       .sidebar.collapsed .navLabel,
       .sidebar.collapsed .sessionMeta,
-      .sidebar.collapsed .logoutLabel,
-      .sidebar.collapsed .sidebarToggleLabel{display:none}
+      .sidebar.collapsed .logoutLabel{display:none}
       .sidebar.collapsed .brandCore{justify-content:center}
       .sidebar.collapsed .sidebarToggle{
-        width:48px;
-        min-width:48px;
-        min-height:48px;
+        width:40px;
+        height:40px;
         padding:0;
       }
       .sidebar.collapsed .navItem{
@@ -621,21 +618,43 @@ export default function App() {
         border-radius:8px;
         background:rgba(255,255,255,.02);
       }
-      .logAnalyticsLayout{
-        display:grid;
-        grid-template-columns:minmax(300px, 360px) minmax(0, 1fr);
-        gap:14px;
-        align-items:start;
-        min-width:0;
-      }
+      .logAnalyticsLayout{display:grid;gap:14px;min-width:0}
       .logAnalyticsColumn{display:grid;gap:14px;min-width:0}
       .logAnalyticsCard{min-width:0;overflow:hidden}
       .logAnalyticsSourceHeader{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
       .logAnalyticsSourceHeader .strong{min-width:0;overflow-wrap:anywhere}
       .logAnalyticsTable{min-width:720px}
+      .logAnalyticsToolbar{
+        display:flex;
+        align-items:flex-end;
+        gap:10px;
+        flex-wrap:wrap;
+      }
+      .logAnalyticsSourceSelect{min-width:min(330px,100%);flex:1 1 330px}
+      .logAnalyticsConfigLayout{
+        display:grid;
+        grid-template-columns:minmax(280px,360px) minmax(0,1fr);
+        gap:14px;
+        align-items:start;
+        min-width:0;
+      }
+      .logAnalyticsSourceList{display:grid;gap:8px}
+      .logAnalyticsSourceItem{
+        width:100%;
+        min-width:0;
+        padding:11px;
+        border-radius:8px;
+        border:1px solid rgba(255,255,255,.08);
+        color:inherit;
+        background:rgba(255,255,255,.025);
+        cursor:pointer;
+        text-align:left;
+      }
+      .logAnalyticsSourceItem:hover{background:rgba(255,255,255,.045);border-color:rgba(255,255,255,.14)}
+      .logAnalyticsSourceItem.active{background:rgba(76,201,166,.10);border-color:rgba(76,201,166,.24)}
       .logAnalyticsHero{
         display:grid;
-        grid-template-columns:minmax(0, 1.35fr) minmax(250px, .65fr);
+        grid-template-columns:minmax(0, 1fr) minmax(310px,.72fr);
         gap:14px;
         align-items:stretch;
       }
@@ -704,7 +723,7 @@ export default function App() {
       .logAnalyticsKpi.bad .logAnalyticsKpiIcon{color:#FECDCA;border-color:rgba(249,112,102,.28);background:rgba(249,112,102,.12)}
       .logAnalyticsKpi.good .logAnalyticsKpiIcon{color:#B7F7CF;border-color:rgba(50,213,131,.28);background:rgba(50,213,131,.12)}
       .logAnalyticsKpiNote{color:var(--muted);font-size:12px;line-height:1.35}
-      .logAnalyticsSplit{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(300px,.95fr);gap:14px;min-width:0}
+      .logAnalyticsSplit{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,.82fr);gap:14px;min-width:0}
       .logAnalyticsDaily{display:grid;gap:8px}
       .logAnalyticsDailyRow{
         display:grid;
@@ -720,27 +739,6 @@ export default function App() {
       .logAnalyticsDailyMeta{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0}
       .logAnalyticsPulse{height:8px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden}
       .logAnalyticsPulse > span{display:block;height:100%;border-radius:inherit;background:linear-gradient(90deg,#6EE7C4,#8DB7FF)}
-      .logAnalyticsSignalList{display:grid;gap:8px}
-      .logAnalyticsSignal{
-        display:flex;
-        align-items:flex-start;
-        gap:10px;
-        padding:11px;
-        border-radius:8px;
-        border:1px solid rgba(255,255,255,.08);
-        background:rgba(255,255,255,.025);
-      }
-      .logAnalyticsSignalIcon{
-        width:30px;
-        height:30px;
-        flex:none;
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        border-radius:8px;
-        border:1px solid rgba(255,255,255,.10);
-        background:rgba(255,255,255,.045);
-      }
       .login{
         background:
           linear-gradient(180deg, rgba(11,13,16,.96), rgba(14,17,22,.98)),
@@ -820,12 +818,10 @@ export default function App() {
         .row2{grid-template-columns:1fr}
         .sidebar{display:none}
       }
-      @media(max-width:1380px){
-        .logAnalyticsLayout{grid-template-columns:1fr}
-      }
       @media(max-width:1160px){
         .logAnalyticsHero,
-        .logAnalyticsSplit{grid-template-columns:1fr}
+        .logAnalyticsSplit,
+        .logAnalyticsConfigLayout{grid-template-columns:1fr}
       }
       @media(max-width:760px){
         .content{padding:16px}
@@ -864,6 +860,8 @@ export default function App() {
           <Route path="/catalog" element={<CatalogPage session={session} />} />
           <Route path="/calendar" element={<CalendarPage session={session} />} />
           <Route path="/log-analytics" element={<LogAnalyticsPage session={session} />} />
+          <Route path="/parcelamentos-health" element={<ParcelamentoHealthPage session={session} />} />
+          <Route path="/ust-calculation" element={session.role === "admin" ? <UstCalculationPage session={session} /> : <Navigate to="/me" replace />} />
           <Route path="/me" element={<MePage session={session} />} />
           <Route path="/meetings" element={session.role === "admin" ? <MeetingsPage session={session} /> : <Navigate to="/me" replace />} />
           <Route

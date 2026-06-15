@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Activity, BarChart3, CheckCircle2, Clock3, FileText, FolderSearch, HeartPulse, RefreshCw, Save, ServerCog, ShieldAlert, ShieldCheck, Trash2, TriangleAlert } from "lucide-react";
+import { BarChart3, Clock3, FolderSearch, HeartPulse, RefreshCw, Save, ServerCog, Settings2, ShieldAlert, ShieldCheck, Trash2, TriangleAlert } from "lucide-react";
 import { apiGet, apiSend, type Session } from "../lib/api";
 import type { LogAnalyticsAnalysis, LogParser, LogSource } from "../types";
 
@@ -42,6 +42,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
     const [loading, setLoading] = useState(true);
     const [reading, setReading] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [managingSources, setManagingSources] = useState(false);
     const [err, setErr] = useState("");
 
     async function loadSources(active = () => true) {
@@ -93,6 +94,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
             setSources((current) => upsertSource(current, saved));
             setSelectedId(saved.id);
             setDraft(defaultDraft);
+            setManagingSources(false);
         } catch (e: any) {
             setErr(String(e?.message ?? e));
         } finally {
@@ -102,11 +104,16 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
 
     async function removeSource() {
         if (!draft.id) return;
+        const removedId = draft.id;
         setSaving(true);
         setErr("");
         try {
-            await apiSend(`/api/log-analytics/sources/${draft.id}`, "DELETE", {}, session);
-            setSources((current) => current.filter((source) => source.id !== draft.id));
+            await apiSend(`/api/log-analytics/sources/${removedId}`, "DELETE", {}, session);
+            setSources((current) => {
+                const next = current.filter((source) => source.id !== removedId);
+                if (selectedId === removedId) setSelectedId(next[0]?.id ?? "");
+                return next;
+            });
             setDraft(defaultDraft);
             setAnalysis(null);
         } catch (e: any) {
@@ -123,7 +130,16 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                     <div className="h1">Log Analytics</div>
                     <div className="muted">Leitura analitica de logs de servicos por caminho de rede.</div>
                 </div>
-                <div className="pageHeaderRight">
+                <div className="logAnalyticsToolbar">
+                    <div className="logAnalyticsSourceSelect">
+                        <div className="label">Fonte</div>
+                        <select className="input" value={selectedId} onChange={(e) => setSelectedId(e.target.value)} disabled={loading || !sources.length}>
+                            {sources.map((source) => (
+                                <option key={source.id} value={source.id}>{source.system} - {source.name}</option>
+                            ))}
+                            {!sources.length ? <option value="">Nenhuma fonte configurada</option> : null}
+                        </select>
+                    </div>
                     <div>
                         <div className="label">Janela</div>
                         <select className="input" value={days} onChange={(e) => setDays(Number(e.target.value))}>
@@ -137,123 +153,35 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                         <RefreshCw size={16} />
                         {reading ? "Lendo logs..." : "Ler logs"}
                     </button>
+                    {session.role === "admin" ? (
+                        <button className={managingSources ? "btn primary" : "btn ghost"} onClick={() => setManagingSources((current) => !current)}>
+                            <Settings2 size={16} />
+                            {managingSources ? "Voltar a analise" : "Configurar fontes"}
+                        </button>
+                    ) : null}
                 </div>
             </div>
 
             {err ? <div className="alert">{err}</div> : null}
 
             <div className="logAnalyticsLayout">
-                <aside className="logAnalyticsColumn">
-                    <section className="card logAnalyticsCard">
-                        <div className="cardTitle">Fontes configuradas</div>
-                        {loading ? <div className="muted">Carregando fontes...</div> : null}
-                        <div style={{ display: "grid", gap: 8 }}>
-                            {sources.map((source) => (
-                                <div
-                                    key={source.id}
-                                    onClick={() => setSelectedId(source.id)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === "Enter" || event.key === " ") {
-                                            event.preventDefault();
-                                            setSelectedId(source.id);
-                                        }
-                                    }}
-                                    role="button"
-                                    tabIndex={0}
-                                    style={{
-                                        padding: 10,
-                                        minWidth: 0,
-                                        borderRadius: 8,
-                                        border: selectedId === source.id ? "1px solid rgba(110,231,255,.48)" : "1px solid rgba(255,255,255,.08)",
-                                        background: selectedId === source.id ? "rgba(110,231,255,.11)" : "rgba(255,255,255,.03)",
-                                        color: "inherit",
-                                        textAlign: "left",
-                                        cursor: "pointer",
-                                    }}
-                                >
-                                    <div className="logAnalyticsSourceHeader">
-                                        <span className="strong">{source.name}</span>
-                                        <span className="pill small">{source.system}</span>
-                                    </div>
-                                    <div className="muted small" style={{ marginTop: 5 }}>{source.description}</div>
-                                    <div className="mono small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>{source.path}</div>
-                                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
-                                        <button
-                                            type="button"
-                                            className="btn primary small"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                setSelectedId(source.id);
-                                                loadAnalysis(source.id);
-                                            }}
-                                            disabled={reading}
-                                        >
-                                            <FolderSearch size={14} />
-                                            Ler logs
-                                        </button>
-                                    {session.role === "admin" ? (
-                                        <button
-                                            type="button"
-                                            className="btn ghost small"
-                                            onClick={(event) => {
-                                                event.stopPropagation();
-                                                setDraft(fromSource(source));
-                                            }}
-                                        >
-                                            Configurar
-                                        </button>
-                                    ) : null}
-                                    </div>
-                                </div>
-                            ))}
-                            {!sources.length ? <div className="muted small">Nenhuma fonte configurada.</div> : null}
-                        </div>
-                    </section>
-
-                    {session.role === "admin" ? (
-                        <section className="card logAnalyticsCard">
-                            <div className="cardTitle">{draft.id ? "Editar fonte" : "Nova fonte"}</div>
-                            <div className="label">Nome / assunto</div>
-                            <input className="input" value={draft.name} onChange={(e) => setDraft((current) => ({ ...current, name: e.target.value }))} />
-                            <div className="row2" style={{ marginTop: 10 }}>
-                                <div>
-                                    <div className="label">Sistema</div>
-                                    <input className="input" value={draft.system} onChange={(e) => setDraft((current) => ({ ...current, system: e.target.value }))} />
-                                </div>
-                                <div>
-                                    <div className="label">Parser</div>
-                                    <select className="input" value={draft.parser} onChange={(e) => setDraft((current) => ({ ...current, parser: e.target.value as LogParser }))}>
-                                        {Object.entries(parserMeta).map(([value, meta]) => (
-                                            <option key={value} value={value}>{meta.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="label" style={{ marginTop: 10 }}>Caminho da pasta</div>
-                            <input className="input mono" value={draft.path} onChange={(e) => setDraft((current) => ({ ...current, path: e.target.value }))} />
-                            <div className="label" style={{ marginTop: 10 }}>Prefixo dos arquivos</div>
-                            <input className="input mono" value={draft.filePrefix} onChange={(e) => setDraft((current) => ({ ...current, filePrefix: e.target.value }))} placeholder="CREDTRIBBaixaAutomatica.exe" />
-                            <div className="muted small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>
-                                O parser atual procura arquivos no formato <span className="mono">{draft.filePrefix.trim() || "prefixo"}.YYYYMMDD.log</span> e espera {parserMeta[draft.parser].expectedSummary}.
-                            </div>
-                            <div className="label" style={{ marginTop: 10 }}>O que significa</div>
-                            <textarea className="input" rows={3} value={draft.description} onChange={(e) => setDraft((current) => ({ ...current, description: e.target.value }))} />
-                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
-                                {draft.id ? (
-                                    <button className="btn danger" onClick={removeSource} disabled={saving}>
-                                        <Trash2 size={15} />
-                                        Remover
-                                    </button>
-                                ) : <span />}
-                                <button className="btn primary" onClick={saveSource} disabled={saving || !draft.name.trim() || !draft.system.trim() || !draft.path.trim() || !draft.filePrefix.trim()}>
-                                    <Save size={15} />
-                                    {saving ? "Salvando..." : "Salvar fonte"}
-                                </button>
-                            </div>
-                        </section>
-                    ) : null}
-                </aside>
-
+                {managingSources && session.role === "admin" ? (
+                    <SourceConfiguration
+                        draft={draft}
+                        loading={loading}
+                        saving={saving}
+                        selectedId={selectedId}
+                        sources={sources}
+                        onDraftChange={setDraft}
+                        onNew={() => setDraft(defaultDraft)}
+                        onRemove={removeSource}
+                        onSave={saveSource}
+                        onSelect={(source) => {
+                            setSelectedId(source.id);
+                            setDraft(fromSource(source));
+                        }}
+                    />
+                ) : (
                 <main className="logAnalyticsColumn">
                     <section className="logAnalyticsHero">
                         <div className="card logAnalyticsCard">
@@ -307,13 +235,7 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 <Kpi label="Execucoes" value={analysis.kpis.executions} icon={<ServerCog size={18} />} note={`${healthyRuns(analysis)} sem erro na janela`} good={healthyRuns(analysis) === analysis.kpis.executions && analysis.kpis.executions > 0} />
                                 <Kpi label={isAtualizarLocal(analysis) ? "Atualizacoes Sydle" : "DAEMS baixados"} value={analysis.kpis.loweredSuccess} icon={<BarChart3 size={18} />} note={isAtualizarLocal(analysis) ? "Atualizacoes concluidas pelo parser" : "Baixas reconhecidas no servico"} />
                                 <Kpi label="Erros encontrados" value={analysis.kpis.errorsFound} icon={<TriangleAlert size={18} />} note={analysis.kpis.errorsFound ? `${analysis.errorPatterns.length} padrao(oes) agrupado(s)` : "Nenhum erro na leitura"} bad={analysis.kpis.errorsFound > 0} good={analysis.kpis.errorsFound === 0} />
-                                <Kpi label="Taxa sem erro" value={formatPercent(successRate(analysis))} icon={<ShieldCheck size={18} />} note={`${analysis.kpis.runsWithErrors} execucao(oes) com erro`} bad={successRate(analysis) < 90} good={successRate(analysis) === 100} />
                                 <Kpi label="Duracao media" value={formatDuration(analysis.kpis.averageDurationSeconds)} icon={<Clock3 size={18} />} note={analysis.kpis.lastRunAt ? `Ultima: ${formatDateTime(analysis.kpis.lastRunAt)}` : "Sem execucao reconhecida"} />
-                            </section>
-
-                            <section className="logAnalyticsSplit">
-                                <DailyHealth analysis={analysis} />
-                                <OperationalSignals analysis={analysis} />
                             </section>
 
                             <section className="card logAnalyticsCard">
@@ -368,25 +290,108 @@ export default function LogAnalyticsPage({ session }: { session: Session }) {
                                 </div>
                             </section>
 
-                            <section className="card logAnalyticsCard">
-                                <div className="cardTitle">Padroes de erro</div>
-                                <div style={{ display: "grid", gap: 8 }}>
-                                    {analysis.errorPatterns.map((pattern) => (
-                                        <div key={pattern.signature} style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(255,92,122,.25)", background: "rgba(255,92,122,.08)" }}>
-                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-                                                <span className="strong" style={{ overflowWrap: "anywhere" }}>{pattern.signature}</span>
-                                                <span className="pill bad">{pattern.count} ocorrencia(s)</span>
-                                            </div>
-                                            <div className="muted small" style={{ marginTop: 6 }}>Ultima: {formatDateTime(pattern.lastAt)}</div>
-                                        </div>
-                                    ))}
-                                    {!analysis.errorPatterns.length ? <div className="muted small">Nenhum padrao de erro na janela lida.</div> : null}
-                                </div>
+                            <section className="logAnalyticsSplit">
+                                <ErrorPatterns analysis={analysis} />
+                                <DailyHealth analysis={analysis} />
                             </section>
                         </>
                     ) : null}
                 </main>
+                )}
             </div>
+        </div>
+    );
+}
+
+function SourceConfiguration({
+    draft,
+    loading,
+    saving,
+    selectedId,
+    sources,
+    onDraftChange,
+    onNew,
+    onRemove,
+    onSave,
+    onSelect,
+}: {
+    draft: SourceDraft;
+    loading: boolean;
+    saving: boolean;
+    selectedId: string;
+    sources: LogSource[];
+    onDraftChange: React.Dispatch<React.SetStateAction<SourceDraft>>;
+    onNew: () => void;
+    onRemove: () => void;
+    onSave: () => void;
+    onSelect: (source: LogSource) => void;
+}) {
+    return (
+        <div className="logAnalyticsConfigLayout">
+            <section className="card logAnalyticsCard">
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                    <div>
+                        <div className="cardTitle" style={{ marginBottom: 4 }}>Fontes</div>
+                        <div className="muted small">Escolha uma fonte para editar.</div>
+                    </div>
+                    <button className="btn ghost small" onClick={onNew}>Nova</button>
+                </div>
+                {loading ? <div className="muted">Carregando fontes...</div> : null}
+                <div className="logAnalyticsSourceList">
+                    {sources.map((source) => (
+                        <button key={source.id} className={`logAnalyticsSourceItem${selectedId === source.id ? " active" : ""}`} onClick={() => onSelect(source)}>
+                            <div className="logAnalyticsSourceHeader">
+                                <span className="strong">{source.name}</span>
+                                <span className="pill small">{source.system}</span>
+                            </div>
+                            <div className="muted small" style={{ marginTop: 6 }}>{source.description || "Sem descricao."}</div>
+                            <div className="mono small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>{source.path}</div>
+                        </button>
+                    ))}
+                    {!sources.length ? <div className="emptyState">Nenhuma fonte configurada.</div> : null}
+                </div>
+            </section>
+
+            <section className="card logAnalyticsCard">
+                <div className="cardTitle">{draft.id ? "Editar fonte" : "Nova fonte"}</div>
+                <div className="label">Nome / assunto</div>
+                <input className="input" value={draft.name} onChange={(e) => onDraftChange((current) => ({ ...current, name: e.target.value }))} />
+                <div className="row2" style={{ marginTop: 10 }}>
+                    <div>
+                        <div className="label">Sistema</div>
+                        <input className="input" value={draft.system} onChange={(e) => onDraftChange((current) => ({ ...current, system: e.target.value }))} />
+                    </div>
+                    <div>
+                        <div className="label">Parser</div>
+                        <select className="input" value={draft.parser} onChange={(e) => onDraftChange((current) => ({ ...current, parser: e.target.value as LogParser }))}>
+                            {Object.entries(parserMeta).map(([value, meta]) => (
+                                <option key={value} value={value}>{meta.label}</option>
+                            ))}
+                        </select>
+                    </div>
+                </div>
+                <div className="label" style={{ marginTop: 10 }}>Caminho da pasta</div>
+                <input className="input mono" value={draft.path} onChange={(e) => onDraftChange((current) => ({ ...current, path: e.target.value }))} />
+                <div className="label" style={{ marginTop: 10 }}>Prefixo dos arquivos</div>
+                <input className="input mono" value={draft.filePrefix} onChange={(e) => onDraftChange((current) => ({ ...current, filePrefix: e.target.value }))} placeholder="CREDTRIBBaixaAutomatica.exe" />
+                <div className="muted small" style={{ marginTop: 7, overflowWrap: "anywhere" }}>
+                    O parser procura <span className="mono">{draft.filePrefix.trim() || "prefixo"}.YYYYMMDD.log</span> e espera {parserMeta[draft.parser].expectedSummary}.
+                </div>
+                <div className="label" style={{ marginTop: 10 }}>O que significa</div>
+                <textarea className="input" rows={3} value={draft.description} onChange={(e) => onDraftChange((current) => ({ ...current, description: e.target.value }))} />
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
+                    {draft.id ? (
+                        <button className="btn danger" onClick={onRemove} disabled={saving}>
+                            <Trash2 size={15} />
+                            Remover
+                        </button>
+                    ) : <span />}
+                    <button className="btn primary" onClick={onSave} disabled={saving || !draft.name.trim() || !draft.system.trim() || !draft.path.trim() || !draft.filePrefix.trim()}>
+                        <Save size={15} />
+                        {saving ? "Salvando..." : "Salvar fonte"}
+                    </button>
+                </div>
+            </section>
         </div>
     );
 }
@@ -478,28 +483,21 @@ function DailyHealth({ analysis }: { analysis: LogAnalyticsAnalysis }) {
     );
 }
 
-function OperationalSignals({ analysis }: { analysis: LogAnalyticsAnalysis }) {
-    const signals = operationalSignals(analysis);
-
+function ErrorPatterns({ analysis }: { analysis: LogAnalyticsAnalysis }) {
     return (
         <section className="card logAnalyticsCard">
-            <div className="cardTitle">Leitura operacional</div>
-            <div className="muted small" style={{ marginBottom: 12 }}>Resumo deterministico do que esta leitura sinaliza agora.</div>
-            <div className="logAnalyticsSignalList">
-                {signals.map((signal) => {
-                    const Icon = signal.tone === "good" ? CheckCircle2 : signal.tone === "bad" ? TriangleAlert : Activity;
-                    return (
-                        <div key={signal.title} className="logAnalyticsSignal">
-                            <div className="logAnalyticsSignalIcon">
-                                <Icon size={17} />
-                            </div>
-                            <div>
-                                <div className="strong">{signal.title}</div>
-                                <div className="muted small" style={{ marginTop: 4 }}>{signal.description}</div>
-                            </div>
+            <div className="cardTitle">Padroes de erro</div>
+            <div style={{ display: "grid", gap: 8 }}>
+                {analysis.errorPatterns.map((pattern) => (
+                    <div key={pattern.signature} style={{ padding: 10, borderRadius: 8, border: "1px solid rgba(255,92,122,.25)", background: "rgba(255,92,122,.08)" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                            <span className="strong" style={{ overflowWrap: "anywhere" }}>{pattern.signature}</span>
+                            <span className="pill bad">{pattern.count} ocorrencia(s)</span>
                         </div>
-                    );
-                })}
+                        <div className="muted small" style={{ marginTop: 6 }}>Ultima: {formatDateTime(pattern.lastAt)}</div>
+                    </div>
+                ))}
+                {!analysis.errorPatterns.length ? <div className="emptyState">Nenhum padrao de erro na janela lida.</div> : null}
             </div>
         </section>
     );
@@ -527,22 +525,6 @@ function healthSummary(analysis: LogAnalyticsAnalysis | null) {
     if (!analysis.kpis.errorsFound) return { tone: "good", title: "Saudavel na janela", description: "As execucoes reconhecidas nao trouxeram erros para esta fonte." };
     if (successRate(analysis) >= 90) return { tone: "warn", title: "Estavel com alerta", description: "A maioria das execucoes passou sem erro, mas ha sinais para revisar." };
     return { tone: "bad", title: "Precisa de atencao", description: "Erros aparecem em uma parcela relevante das execucoes lidas." };
-}
-
-function operationalSignals(analysis: LogAnalyticsAnalysis) {
-    const success = successRate(analysis);
-    const signals = [
-        analysis.kpis.errorsFound === 0
-            ? { tone: "good", title: "Janela sem erro", description: `${analysis.kpis.executions} execucao(oes) reconhecida(s) sem erro agrupado.` }
-            : { tone: success < 90 ? "bad" : "warn", title: "Erros encontrados", description: `${analysis.kpis.errorsFound} erro(s) em ${analysis.kpis.runsWithErrors} execucao(oes). O agrupamento ajuda a atacar repeticoes.` },
-        analysis.errorPatterns[0]
-            ? { tone: "warn", title: "Padrao mais frequente", description: `${analysis.errorPatterns[0].count} ocorrencia(s): ${analysis.errorPatterns[0].signature}` }
-            : { tone: "good", title: "Sem padrao de falha", description: "Nenhum padrao de erro foi agrupado nesta leitura." },
-        analysis.kpis.lastRunAt
-            ? { tone: "good", title: "Ultima execucao reconhecida", description: formatDateTime(analysis.kpis.lastRunAt) }
-            : { tone: "warn", title: "Sem execucao reconhecida", description: "Revise parser, prefixo e formato do arquivo." },
-    ];
-    return signals;
 }
 
 function healthyRuns(analysis: LogAnalyticsAnalysis) {

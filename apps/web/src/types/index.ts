@@ -243,3 +243,39 @@ export type LogAnalyticsAnalysis = {
         signature: string;
     }>;
 };
+
+export type ParcelamentoHealth = {
+    from: string;
+    to: string;
+    days: number;
+    summary: {
+        total: number;
+        homologados: number;
+        semHomologacao: number;
+        debitoAutomatico: number;
+        mediaParcelas: number;
+        valorTributoUam: number;
+        ultimaProtocolizacao: string | null;
+    };
+    daily: Array<{
+        dia: string;
+        total: number;
+        homologados: number;
+        semHomologacao: number;
+        debitoAutomatico: number;
+        mediaParcelas: number;
+        valorTributoUam: number;
+    }>;
+    latest: Array<{
+        parcelamentoId: number;
+        numeroPpd: number;
+        dominioIdSituacao: number;
+        dataProtocolizacao: string | null;
+        numeroSpi: string | null;
+        dataHomologacao: string | null;
+        quantidadeParcelas: number;
+        localPpd: string | null;
+        debitoAutomaticoAutorizado: string | null;
+        valorTributoUam: number;
+    }>;
+};

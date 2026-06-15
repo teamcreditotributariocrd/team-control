@@ -1,21 +1,29 @@
 import { createTasksAndPrint, createTfsTaskDraft, formatDateBr } from "./_shared/tfsTaskHelpers.mjs";
 
-const PBI_ID = 1354277;
+const PBI_ID = 1371391;
 const atividadeUst =
-  "41 - Análise e Projeto - Cerimônias/Reuniões - Reunião Tecnica / Super Complexa / Acima de 3 horas até 4,5 horas de duração. Por profissional envolvido. Limitada a quantidade de frações de tempo dos dias úteis do mês.";
+  "41 - Analise e Projeto - Cerimonias/Reunioes - Reuniao Tecnica / Super Complexa / Acima de 3 horas ate 4,5 horas de duracao. Por profissional envolvido. Limitada a quantidade de fracoes de tempo dos dias uteis do mes.";
 
 const atividades = [
   {
-    prefixo: "Desenvolvimento/ajustes calculado para data de distribuição",
-    datasExecucao: ["2026-04-02", "2026-04-09", "2026-04-24"],
+    prefixo: "Reuniao de Qualidade",
+    datasExecucao: ["2026-05-25"],
   },
   {
-    prefixo: "Alinhamentos sobre assinatura gov.br",
-    datasExecucao: ["2026-04-07", "2026-04-15", "2026-04-29"],
+    prefixo: "Reuniao de Alinhamento de Virada das Notificacoes de ICMS",
+    datasExecucao: ["2026-05-26"],
   },
   {
-    prefixo: "Alinhamentos com time ePat sobre integração com o CRD",
-    datasExecucao: ["2026-04-13", "2026-04-17", "2026-04-30"],
+    prefixo: "Reuniao de Alinhamento sobre Gov.br",
+    datasExecucao: ["2026-05-27"],
+  },
+  {
+    prefixo: "Alinhamentos com a CRAT sobre Parcelamentos",
+    datasExecucao: ["2026-05-28"],
+  },
+  {
+    prefixo: "Alinhamentos com a CRAT sobre DAEMS destinacao FUNFAZ",
+    datasExecucao: ["2026-05-29"],
   },
 ];
 

@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { ArrowLeftToLine, ArrowRightToLine, BarChart3, BookOpen, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, LayoutDashboard, LogOut, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
+import { BarChart3, BookOpen, Calculator, CalendarClock, CalendarDays, ClipboardCheck, ClipboardList, Database, LayoutDashboard, LogOut, PanelLeftClose, PanelLeftOpen, ScrollText, Settings, Ticket, UserRound } from "lucide-react";
 import { cls } from "../lib/utils";
 import type { Session } from "../lib/api";
 
 function isActiveRoute(to: string, pathname: string) {
-    const exact = new Set(["/me", "/dashboard", "/settings", "/catalog", "/meetings", "/calendar", "/log-analytics"]);
+    const exact = new Set(["/me", "/dashboard", "/settings", "/catalog", "/meetings", "/calendar", "/log-analytics", "/ust-calculation", "/parcelamentos-health"]);
     if (exact.has(to)) return pathname === to;
     return pathname === to || pathname.startsWith(to + "/");
 }
@@ -28,6 +28,8 @@ export default function Layout({
         { to: "/settings", label: "Configuracoes", icon: Settings, show: session.role === "admin" },
         { to: "/catalog", label: "Catalogo", icon: BookOpen, show: true },
         { to: "/calendar", label: "Calendario", icon: CalendarDays, show: true },
+        { to: "/ust-calculation", label: "Calculo UST", icon: Calculator, show: session.role === "admin" },
+        { to: "/parcelamentos-health", label: "Parcelamentos", icon: Database, show: true },
         { to: "/log-analytics", label: "Log Analytics", icon: ScrollText, show: true },
         { to: "/meetings", label: "Reunioes", icon: CalendarClock, show: session.role === "admin" },
         { to: "/incidents", label: "Incidentes", icon: Ticket, show: true },
@@ -58,8 +60,7 @@ export default function Layout({
                         aria-label={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
                         title={sidebarCollapsed ? "Expandir menu lateral" : "Recolher menu lateral"}
                     >
-                        {sidebarCollapsed ? <ArrowRightToLine size={22} /> : <ArrowLeftToLine size={22} />}
-                        <span className="sidebarToggleLabel">{sidebarCollapsed ? "Abrir" : "Recolher"}</span>
+                        {sidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
                     </button>
                 </div>
 
