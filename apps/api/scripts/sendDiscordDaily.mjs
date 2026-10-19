@@ -33,24 +33,16 @@ function fmtPct(x) {
     if (!Number.isFinite(n)) return "—";
     return `${n.toFixed(1)}%`;
 }
-function statusBadge(status) {
-    if (status === "ON_TRACK") return "🟩";
-    if (status === "AT_RISK") return "🟨";
-    if (status === "OFF_TRACK") return "🟥";
-    return "⬜";
+function statusCircle(status) {
+    if (status === "ON_TRACK") return "🟢";
+    if (status === "AT_RISK") return "🟡";
+    if (status === "OFF_TRACK") return "🔴";
+    return "⚪";
 }
-function statusLabel(status) {
-    if (status === "ON_TRACK") return "No ritmo";
-    if (status === "AT_RISK") return "Atenção";
-    if (status === "OFF_TRACK") return "Abaixo do ritmo";
-    if (status === "NO_GOAL") return "Sem meta";
-    return "Sem status";
-}
-function progressBar(pct, width = 10) {
-    const n = Number(pct);
-    if (!Number.isFinite(n)) return "▱".repeat(width);
-    const filled = Math.round(clamp(n, 0, 100) / 100 * width);
-    return "▰".repeat(filled) + "▱".repeat(width - filled);
+function progressBar(pct, status, width = 10) {
+    const raw = Number(pct);
+    const filled = Number.isFinite(raw) ? Math.round(clamp(raw, 0, 100) / 100 * width) : 0;
+    return statusCircle(status).repeat(filled) + "⚪".repeat(width - filled);
 }
 const month = isoMonth();
 const today = isoDate();
@@ -98,11 +90,11 @@ const blocks = [
         fields: [
             {
                 type: "mrkdwn",
-                text: `*ATINGIMENTO DO TIME*\n${statusBadge(summary?.team?.status)}  *${teamPct}*\n\`${progressBar(summary?.team?.pct)}\``,
+                text: `*PERCENTUAL DO TIME*\n${statusCircle(summary?.team?.status)}  *${teamPct}*\n${progressBar(summary?.team?.pct, summary?.team?.status, 10)}`,
             },
             {
                 type: "mrkdwn",
-                text: `*STATUS DA EQUIPE*\n🟩 ${statusCounts.ON_TRACK ?? 0} no ritmo   ·   🟨 ${statusCounts.AT_RISK ?? 0} atenção   ·   🟥 ${statusCounts.OFF_TRACK ?? 0} abaixo`,
+                text: `*STATUS DA EQUIPE*\n🟢 ${statusCounts.ON_TRACK ?? 0} no ritmo   ·   🟡 ${statusCounts.AT_RISK ?? 0} atenção   ·   🔴 ${statusCounts.OFF_TRACK ?? 0} abaixo`,
             },
         ],
     },
@@ -126,11 +118,11 @@ if (sorted.length === 0) {
             fields: [
                 {
                     type: "mrkdwn",
-                    text: `*${String(index + 1).padStart(2, "0")}  ${name}*\n${statusBadge(row.status)}  ${statusLabel(row.status)}`,
+                    text: `*${String(index + 1).padStart(2, "0")}  ${name}*`,
                 },
                 {
                     type: "mrkdwn",
-                    text: `*${fmtPct(row.pct)}*\n\`${progressBar(row.pct)}\` da meta`,
+                    text: `*${fmtPct(row.pct)}*\n${progressBar(row.pct, row.status, 10)}`,
                 },
             ],
         });
