@@ -99,7 +99,6 @@ export function createCollaboratorsStore(dataDir = resolveApiDataDir()) {
         collaborators = [
             { id: uid(), displayName: "Hudson de Camargo Barbosa", uniqueName: "FAZENDA\\hbarbosa", monthlyGoalUst: 392, isActive: true, role: "member" },
             { id: uid(), displayName: "Jorge Barbosa de Souza Neto", uniqueName: "FAZENDA\\jbsouza", monthlyGoalUst: 859, isActive: true, role: "admin" },
-            { id: uid(), displayName: "Leandro Camargo da Veiga", uniqueName: "FAZENDA\\lcveiga", monthlyGoalUst: 790, isActive: true, role: "member" },
             { id: uid(), displayName: "Luiz Felipe Matias da Silva", uniqueName: "FAZENDA\\lfmsilva", monthlyGoalUst: 543, isActive: true, role: "member" },
             { id: uid(), displayName: "Thiago Moreira Santos", uniqueName: "FAZENDA\\tmsantos", monthlyGoalUst: 452, isActive: true, role: "member" },
             { id: uid(), displayName: "Vinicius Paula Da Costa Souza", uniqueName: "FAZENDA\\vpsouza", monthlyGoalUst: 271, isActive: true, role: "member" },

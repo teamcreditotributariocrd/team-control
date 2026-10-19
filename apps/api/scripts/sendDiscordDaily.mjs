@@ -9,10 +9,10 @@ const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, "../.env");
 dotenv.config({ path: envPath });
 
-const webhook = process.env.DISCORD_WEBHOOK_URL;
+const webhook = process.env.SLACK_WEBHOOK_URL;
 if (!webhook) {
-    console.error("Missing DISCORD_WEBHOOK_URL (loaded from: " + envPath + ")");
-    process.exitCode = 1;
+    console.error("Missing SLACK_WEBHOOK_URL (loaded from: " + envPath + ")");
+    process.exit(1);
 }
 
 const API_BASE = process.env.ALERT_API_BASE ?? "http://localhost:3001";
@@ -33,39 +33,25 @@ function fmtPct(x) {
     if (!Number.isFinite(n)) return "—";
     return `${n.toFixed(1)}%`;
 }
-function fmtPctFixedWidth(x) {
-    const n = Number(x);
-    if (!Number.isFinite(n)) return "  —  ";
-    // Ex: " 12.3" -> " 12.3%"
-    const s = n.toFixed(1).padStart(5, " ");
-    return `${s}%`;
-}
-function statusTag(status) {
-    // tag premium (sem “bullet”)
-    if (status === "ON_TRACK") return "ON";
-    if (status === "AT_RISK") return "RISK";
-    if (status === "OFF_TRACK") return "OFF";
-    return "—";
-}
 function statusBadge(status) {
-    // "coloridos" premium via emoji quadrado discreto
     if (status === "ON_TRACK") return "🟩";
     if (status === "AT_RISK") return "🟨";
     if (status === "OFF_TRACK") return "🟥";
     return "⬜";
 }
-function progressBar(pct, width = 14) {
+function statusLabel(status) {
+    if (status === "ON_TRACK") return "No ritmo";
+    if (status === "AT_RISK") return "Atenção";
+    if (status === "OFF_TRACK") return "Abaixo do ritmo";
+    if (status === "NO_GOAL") return "Sem meta";
+    return "Sem status";
+}
+function progressBar(pct, width = 10) {
     const n = Number(pct);
-    if (!Number.isFinite(n)) return "░".repeat(width);
+    if (!Number.isFinite(n)) return "▱".repeat(width);
     const filled = Math.round(clamp(n, 0, 100) / 100 * width);
-    return "█".repeat(filled) + "░".repeat(width - filled);
+    return "▰".repeat(filled) + "▱".repeat(width - filled);
 }
-function firstName(displayName) {
-    const s = String(displayName ?? "").trim();
-    if (!s) return "—";
-    return s.split(/\s+/)[0];
-}
-
 const month = isoMonth();
 const today = isoDate();
 
@@ -83,52 +69,97 @@ if (!summaryRes.ok) {
     process.exitCode = 1;
 }
 
-const rows = summary.rows ?? [];
+const rows = (summary.rows ?? []).filter(
+    (row) => String(row.uniqueName ?? "").trim().toLowerCase() !== "fazenda\\lcveiga",
+);
 const teamPct = fmtPct(summary?.team?.pct);
 
 // ✅ ordenar por % (ranking). Se você não quiser ranking, comente o sort.
 const sorted = rows
     .slice()
     .sort((a, b) => Number(b.pct ?? 0) - Number(a.pct ?? 0));
+const statusCounts = sorted.reduce((counts, row) => {
+    counts[row.status] = (counts[row.status] ?? 0) + 1;
+    return counts;
+}, {});
 
-// // ✅ sem ranking (ordem de cadastro)
-// const sorted = rows.slice();
+const blocks = [
+    {
+        type: "header",
+        text: { type: "plain_text", text: "Relatório diário de UST", emoji: true },
+    },
+    {
+        type: "context",
+        elements: [{ type: "mrkdwn", text: `TEAM CONTROL   /   ${today}   /   ${month}` }],
+    },
+    { type: "divider" },
+    {
+        type: "section",
+        fields: [
+            {
+                type: "mrkdwn",
+                text: `*ATINGIMENTO DO TIME*\n${statusBadge(summary?.team?.status)}  *${teamPct}*\n\`${progressBar(summary?.team?.pct)}\``,
+            },
+            {
+                type: "mrkdwn",
+                text: `*STATUS DA EQUIPE*\n🟩 ${statusCounts.ON_TRACK ?? 0} no ritmo   ·   🟨 ${statusCounts.AT_RISK ?? 0} atenção   ·   🟥 ${statusCounts.OFF_TRACK ?? 0} abaixo`,
+            },
+        ],
+    },
+    { type: "divider" },
+    {
+        type: "section",
+        text: { type: "mrkdwn", text: `*DESEMPENHO INDIVIDUAL*     _${sorted.length} integrantes_` },
+    },
+];
 
-const nameWidth = 12; // ajustável
-const header = `STATUS  %     PROGRESSO         NOME`;
-const tableLines = sorted.map((r) => {
-    const pct = r.pct;
-    const bar = progressBar(pct, 14);
-    const tag = statusTag(r.status);
-    const badge = statusBadge(r.status);
-    const pctTxt = fmtPctFixedWidth(pct);
-    const name = firstName(r.displayName).padEnd(nameWidth, " ").slice(0, nameWidth);
+if (sorted.length === 0) {
+    blocks.push({
+        type: "section",
+        text: { type: "mrkdwn", text: "Nenhum colaborador ativo encontrado para este período." },
+    });
+} else {
+    for (const [index, row] of sorted.entries()) {
+        const name = String(row.displayName ?? "Colaborador").trim() || "Colaborador";
+        blocks.push({
+            type: "section",
+            fields: [
+                {
+                    type: "mrkdwn",
+                    text: `*${String(index + 1).padStart(2, "0")}  ${name}*\n${statusBadge(row.status)}  ${statusLabel(row.status)}`,
+                },
+                {
+                    type: "mrkdwn",
+                    text: `*${fmtPct(row.pct)}*\n\`${progressBar(row.pct)}\` da meta`,
+                },
+            ],
+        });
+    }
+}
 
-    // Ex: 🟩 ON   45.2%  ██████░░░░░░░░  Jorge
-    return `${badge} ${tag.padEnd(4, " ")} ${pctTxt}  ${bar}  ${name}`;
-});
+blocks.push(
+    { type: "divider" },
+    {
+        type: "context",
+        elements: [{
+            type: "mrkdwn",
+            text: "Percentuais individuais em relação à meta mensal  ·  Metas e valores absolutos são privados",
+        }],
+    },
+);
 
-const content =
-    `**Team Control • Daily Progress Report**
-> **Data:** ${today}  •  **Mês:** ${month}  •  **Progresso do time:** **${teamPct}**
-
-\`\`\`
-${header}
-${tableLines.join("\n")}
-\`\`\`
-
-_Nota de privacidade: este canal exibe somente **percentual** por colaborador. Metas e valores absolutos são privados._`;
+const fallbackText = `Resumo diário de UST · ${today} · Progresso do time: ${teamPct}`;
 
 const resp = await fetch(webhook, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify({ text: fallbackText, blocks }),
 });
 
 if (!resp.ok) {
     const t = await resp.text().catch(() => "");
-    console.error("Discord webhook failed:", resp.status, t.slice(0, 800));
+    console.error("Slack webhook failed:", resp.status, t.slice(0, 800));
     process.exitCode = 1;
 }
 
-console.log("Discord daily sent:", today);
+console.log("Slack daily report sent:", today);

@@ -1,10 +1,17 @@
 import { createTasksAndPrint, createTfsTaskDraft } from "./_shared/tfsTaskHelpers.mjs";
 
-const PBI_ID = 1354277;
+const PBI_ID = 1426527;
 const datasExecucao = [
-  "2026-04-27",
-  "2026-04-28",
-  "2026-04-29",
+  "2026-08-03",
+  "2026-08-04",
+  "2026-08-05",
+  "2026-08-06",
+  "2026-08-07",
+  "2026-08-10",
+  "2026-08-11",
+  "2026-08-12",
+  "2026-08-13",
+  "2026-08-14",
 ];
 
 const drafts = datasExecucao.map((dataExecucao) =>

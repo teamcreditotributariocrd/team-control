@@ -33,23 +33,37 @@ const client = NtlmClient(
     axios
 );
 
-const PBI_ID = 1333955;
+const PBI_ID = 1426527;
 const url = `${COLLECTION_URL}/${PROJECT}/_apis/wit/workitems/$Task?api-version=1.0`;
+const startDate = "2026-08-01";
+const endDate = "2026-08-28";
+const holidays = new Set(["2026-08-26"]);
 
-const tarefas = [
-    {
-        dataExecucao: "2026-04-27",
-        complemento: "teste do fluxo"
-    },
-    {
-        dataExecucao: "2026-04-28",
-        complemento: "criação do PPD"
-    },
-    {
-        dataExecucao: "2026-04-29",
-        complemento: "preparação dos dados"
+function getBusinessDays(start, end) {
+    const dates = [];
+    const startDateObj = new Date(`${start}T00:00:00`);
+    const endDateObj = new Date(`${end}T00:00:00`);
+
+    for (let current = new Date(startDateObj); current <= endDateObj; current.setDate(current.getDate() + 1)) {
+        const dayOfWeek = current.getDay();
+        const dateIso = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}-${String(current.getDate()).padStart(2, "0")}`;
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateIso)) {
+            const year = current.getFullYear();
+            const month = String(current.getMonth() + 1).padStart(2, "0");
+            const day = String(current.getDate()).padStart(2, "0");
+            dates.push(`${year}-${month}-${day}`);
+        }
     }
-];
+
+    return dates;
+}
+
+const tarefas = getBusinessDays(startDate, endDate)
+    .slice(0, 5)
+    .map((dataExecucao, index) => ({
+        dataExecucao,
+        complemento: index === 0 ? "teste do fluxo" : "criação do PPD"
+    }));
 
 function formatDateBr(isoDate) {
     const [year, month, day] = isoDate.split("-");

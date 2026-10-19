@@ -1,22 +1,34 @@
 import { createTasksAndPrint, createTfsTaskDraft, formatDateBr } from "./_shared/tfsTaskHelpers.mjs";
 
-const PBI_ID = 1371391;
-const datasExecucao = [
-  "2026-05-01",
-  "2026-05-04",
-  "2026-05-05",
-  "2026-05-06",
-  "2026-05-07",
-  "2026-05-08",
-  "2026-05-09",
-  "2026-05-10",
-  "2026-05-11",
-  "2026-05-12",
-  "2026-05-13",
-  "2026-05-14",
-  "2026-05-15",
-  "2026-05-18",
-];
+const PBI_ID = 1443909;
+const startDate = "2026-09-01";
+const endDate = "2026-09-30";
+const holidays = new Set(["2026-09-07"]);
+
+function formatDateIso(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getBusinessDays(start, end) {
+  const dates = [];
+  const startDate = new Date(`${start}T00:00:00`);
+  const endDate = new Date(`${end}T00:00:00`);
+
+  for (let current = new Date(startDate); current <= endDate; current.setDate(current.getDate() + 1)) {
+    const dayOfWeek = current.getDay();
+    const dateIso = formatDateIso(current);
+    if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidays.has(dateIso)) {
+      dates.push(dateIso);
+    }
+  }
+
+  return dates;
+}
+
+const datasExecucao = getBusinessDays(startDate, endDate);
 
 const drafts = datasExecucao.map((dataExecucao) => {
   const dataBr = formatDateBr(dataExecucao);

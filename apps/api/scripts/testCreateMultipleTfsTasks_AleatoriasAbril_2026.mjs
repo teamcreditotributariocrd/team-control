@@ -1,29 +1,28 @@
 import { createTasksAndPrint, createTfsTaskDraft, formatDateBr } from "./_shared/tfsTaskHelpers.mjs";
 
-const PBI_ID = 1371391;
+const PBI_ID = 1443909;
 const atividadeUst =
   "41 - Analise e Projeto - Cerimonias/Reunioes - Reuniao Tecnica / Super Complexa / Acima de 3 horas ate 4,5 horas de duracao. Por profissional envolvido. Limitada a quantidade de fracoes de tempo dos dias uteis do mes.";
 
 const atividades = [
   {
-    prefixo: "Reuniao de Qualidade",
-    datasExecucao: ["2026-05-25"],
+    prefixo: "Problemas na Pendencia Fiscal e Certidao Negativa de Debitos",
+    datasExecucao: [
+      "2026-09-02",
+      "2026-09-08",
+      "2026-09-11",
+      "2026-09-16",
+      "2026-09-23",
+      "2026-09-29",
+    ],
   },
   {
-    prefixo: "Reuniao de Alinhamento de Virada das Notificacoes de ICMS",
-    datasExecucao: ["2026-05-26"],
-  },
-  {
-    prefixo: "Reuniao de Alinhamento sobre Gov.br",
-    datasExecucao: ["2026-05-27"],
-  },
-  {
-    prefixo: "Alinhamentos com a CRAT sobre Parcelamentos",
-    datasExecucao: ["2026-05-28"],
-  },
-  {
-    prefixo: "Alinhamentos com a CRAT sobre DAEMS destinacao FUNFAZ",
-    datasExecucao: ["2026-05-29"],
+    prefixo: "Reuniao e analise de permissoes de acesso para PGE na Pendencia Fiscal e Certidao de Debitos",
+    datasExecucao: [
+      "2026-09-04",
+      "2026-09-18",
+      "2026-09-25",
+    ],
   },
 ];
 

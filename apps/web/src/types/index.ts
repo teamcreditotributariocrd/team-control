@@ -250,9 +250,9 @@ export type ParcelamentoHealth = {
     days: number;
     summary: {
         total: number;
-        homologados: number;
-        semHomologacao: number;
-        debitoAutomatico: number;
+        autoParcelamento: number;
+        assinaturaDigital: number;
+        beneficioFiscal: number;
         mediaParcelas: number;
         valorTributoUam: number;
         ultimaProtocolizacao: string | null;
@@ -260,22 +260,37 @@ export type ParcelamentoHealth = {
     daily: Array<{
         dia: string;
         total: number;
-        homologados: number;
-        semHomologacao: number;
-        debitoAutomatico: number;
+        autoParcelamento: number;
+        assinaturaDigital: number;
+        beneficioFiscal: number;
         mediaParcelas: number;
+        valorTributoUam: number;
+    }>;
+    benefits: Array<{
+        beneficioId: number;
+        descricao: string;
+        total: number;
+    }>;
+    situations: Array<{
+        situacaoId: number;
+        label: string;
+        importance: number;
+        total: number;
         valorTributoUam: number;
     }>;
     latest: Array<{
         parcelamentoId: number;
         numeroPpd: number;
         dominioIdSituacao: number;
+        situacaoLabel: string;
         dataProtocolizacao: string | null;
         numeroSpi: string | null;
-        dataHomologacao: string | null;
         quantidadeParcelas: number;
         localPpd: string | null;
-        debitoAutomaticoAutorizado: string | null;
+        autoParcelamento: boolean;
+        assinaturaDigital: boolean;
+        beneficioId: number | null;
+        beneficioDescricao: string | null;
         valorTributoUam: number;
     }>;
 };
