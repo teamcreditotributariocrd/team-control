@@ -42,7 +42,8 @@ function statusCircle(status) {
 function progressBar(pct, status, width = 10) {
     const raw = Number(pct);
     const filled = Number.isFinite(raw) ? Math.round(clamp(raw, 0, 100) / 100 * width) : 0;
-    return statusCircle(status).repeat(filled) + "⚪".repeat(width - filled);
+    const color = status === "ON_TRACK" ? "🟩" : status === "AT_RISK" ? "🟨" : status === "OFF_TRACK" ? "🟥" : "⬜";
+    return color.repeat(filled) + "⬜".repeat(width - filled);
 }
 const month = isoMonth();
 const today = isoDate();
