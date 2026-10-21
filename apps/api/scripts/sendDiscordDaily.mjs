@@ -39,6 +39,14 @@ function statusCircle(status) {
     if (status === "OFF_TRACK") return "🔴";
     return "⚪";
 }
+function getTeamStatus(team) {
+    const goal = Number(team?.goal ?? 0);
+    const forecast = Number(team?.forecast ?? 0);
+    if (goal <= 0) return "NO_GOAL";
+    if (forecast >= goal) return "ON_TRACK";
+    if (forecast >= goal * 0.9) return "AT_RISK";
+    return "OFF_TRACK";
+}
 function progressBar(pct, status, width = 10) {
     const raw = Number(pct);
     const filled = Number.isFinite(raw) ? Math.round(clamp(raw, 0, 100) / 100 * width) : 0;
@@ -66,6 +74,7 @@ const rows = (summary.rows ?? []).filter(
     (row) => String(row.uniqueName ?? "").trim().toLowerCase() !== "fazenda\\lcveiga",
 );
 const teamPct = fmtPct(summary?.team?.pct);
+const teamStatus = getTeamStatus(summary?.team);
 
 // ✅ ordenar por % (ranking). Se você não quiser ranking, comente o sort.
 const sorted = rows
@@ -91,7 +100,7 @@ const blocks = [
         fields: [
             {
                 type: "mrkdwn",
-                text: `*PERCENTUAL DO TIME*\n${statusCircle(summary?.team?.status)}  *${teamPct}*\n${progressBar(summary?.team?.pct, summary?.team?.status, 10)}`,
+                text: `*PERCENTUAL DO TIME*\n${statusCircle(teamStatus)}  *${teamPct}*\n${progressBar(summary?.team?.pct, teamStatus, 10)}`,
             },
             {
                 type: "mrkdwn",
